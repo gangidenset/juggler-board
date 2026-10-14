@@ -87,9 +87,13 @@ jobs:
             --keystorealias "$KEY_ALIAS" \
             --keystorealiaspass "$KEYSTORE_PASSWORD" \
             --androidreleasetype APK
-          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          # 署名済み（*-signed.apk）だけを使う。同じ場所に未署名版（*-unsigned.apk）もできるので注意
+          APK=$(find android/app/build/outputs/apk/release -name '*-signed.apk' ! -name '*unsigned*' | head -1)
+          test -n "$APK"
           echo "built: $APK"
           cp "$APK" "$GITHUB_WORKSPACE/juggler-board.apk"
+          # 署名を検証（未署名・壊れたAPKなら失敗させる）
+          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner verify --print-certs "$GITHUB_WORKSPACE/juggler-board.apk"
           rm -f "$RUNNER_TEMP/release.keystore"
 
       - name: Publish to Releases
