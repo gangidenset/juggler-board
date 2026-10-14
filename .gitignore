@@ -1,0 +1,7 @@
+# GitHubに上げるのは公開用アプリと設定ファイルだけ（実戦データ・原本・署名鍵は上げない）
+/*
+!/.gitignore
+!/README.md
+!/01_公開用_スマホ/
+!/android-app/
+!/.github/

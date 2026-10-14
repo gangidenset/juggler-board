@@ -1,0 +1,102 @@
+# 01_公開用_スマホ の中身を Capacitor で包んで Android アプリ（APK）を作り、Releases に置く。
+# 署名鍵はリポジトリの Secrets（KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS）から読む。
+# 毎回同じ鍵で署名するので、新しいAPKを上書きインストールしてもアプリ内のデータは消えない。
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '01_公開用_スマホ/**'
+      - 'android-app/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Prepare web assets
+        run: |
+          mkdir -p build/www
+          cp -r 01_公開用_スマホ/. build/www/
+          # アプリ内では Service Worker は不要（ファイルはすべてアプリに同梱される）
+          rm -f build/www/sw.js
+          # Excel読み込みライブラリも同梱し、電波がなくてもインポートできるようにする
+          curl -fsSL -o build/www/xlsx.full.min.js https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js
+          sed -i "s#https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js#xlsx.full.min.js#" build/www/index.html
+          grep -q "XLSX_SRC = 'xlsx.full.min.js'" build/www/index.html
+
+      - name: Create Capacitor Android project
+        working-directory: build
+        run: |
+          npm init -y > /dev/null
+          npm install @capacitor/core@7 @capacitor/cli@7 @capacitor/android@7 @capacitor/filesystem@7 @capacitor/share@7
+          cp ../android-app/capacitor.config.json .
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate app icons
+        continue-on-error: true
+        working-directory: build
+        run: |
+          mkdir -p assets
+          cp ../android-app/icon.png assets/icon-only.png
+          cp ../android-app/icon.png assets/splash.png
+          cp ../android-app/icon.png assets/splash-dark.png
+          npx --yes @capacitor/assets@3 generate --android \
+            --iconBackgroundColor '#121316' --iconBackgroundColorDark '#121316' \
+            --splashBackgroundColor '#121316' --splashBackgroundColorDark '#121316'
+
+      - name: Set version
+        working-directory: build/android/app
+        run: |
+          sed -i -E "s/versionCode [0-9]+/versionCode ${{ github.run_number }}/" build.gradle
+          sed -i -E "s/versionName \"[^\"]*\"/versionName \"1.${{ github.run_number }}\"/" build.gradle
+          grep -E "versionCode|versionName" build.gradle
+
+      - name: Build signed APK
+        working-directory: build
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          npx cap build android \
+            --keystorepath "$RUNNER_TEMP/release.keystore" \
+            --keystorepass "$KEYSTORE_PASSWORD" \
+            --keystorealias "$KEY_ALIAS" \
+            --keystorealiaspass "$KEYSTORE_PASSWORD" \
+            --androidreleasetype APK
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          echo "built: $APK"
+          cp "$APK" "$GITHUB_WORKSPACE/juggler-board.apk"
+          rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "build-${{ github.run_number }}" juggler-board.apk \
+            --title "設定推測 Android版 1.${{ github.run_number }}" \
+            --notes "スマホでこのページを開き、juggler-board.apk をタップしてインストールしてください。" \
+            --latest

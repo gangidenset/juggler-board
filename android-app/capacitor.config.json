@@ -1,0 +1,9 @@
+{
+  "appId": "com.gangidenset.jugglerboard",
+  "appName": "設定推測",
+  "webDir": "www",
+  "backgroundColor": "#121316",
+  "android": {
+    "adjustMarginsForEdgeToEdge": "force"
+  }
+}

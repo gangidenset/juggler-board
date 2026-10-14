@@ -1,0 +1,3028 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ジャグラー設定推測ボード</title>
+<!-- ホーム画面追加（PWA）用。manifest / sw.js / icons は公開用フォルダ（01_公開用_スマホ）にある -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#121316">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="設定推測">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg: #121316;
+    --panel: #1b1d22;
+    --panel-2: #22252c;
+    --line: #2d3038;
+    --text: #e9e7e1;
+    --text-dim: #9a9fab;
+    --text-faint: #666b78;
+    --red: #e2432c;
+    --gold: #d4af37;
+    --silver: #b9bec9;
+    --bronze: #c07a4a;
+    --green: #4caf7d;
+    --mono: 'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Yu Gothic', 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,
+  body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{min-height:100vh;}
+  .app{max-width:1400px;margin:0 auto;padding:20px 20px 60px;}
+
+  /* header */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px;flex-wrap:wrap;}
+  .brand{display:flex;align-items:baseline;gap:12px;}
+  .brand .lamp{width:10px;height:10px;border-radius:50%;background:var(--red);
+    box-shadow:0 0 10px 2px rgba(226,67,44,.7);display:inline-block;}
+  .brand h1{font-size:20px;letter-spacing:.02em;margin:0;font-weight:700;}
+  .brand .sub{color:var(--text-dim);font-size:12.5px;}
+  .hall-tag{font-family:var(--mono);font-size:12.5px;color:var(--text-dim);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap;}
+  .hall-tag b{color:var(--text);font-weight:600;}
+  .hall-tag button{background:none;border:1px solid var(--line);color:var(--text-dim);
+    border-radius:5px;padding:3px 8px;font-size:11.5px;cursor:pointer;}
+  .hall-tag button:hover{border-color:var(--gold);color:var(--gold);}
+
+  /* layout */
+  .layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;}
+  @media (max-width: 900px){ .layout{grid-template-columns:minmax(0,1fr);} }
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:16px 16px 18px;margin-bottom:16px;}
+  .card h2{font-size:13px;margin:0 0 12px;color:var(--text-dim);font-weight:600;
+    letter-spacing:.03em;display:flex;align-items:center;gap:8px;}
+  .card h2 .n{color:var(--gold);font-family:var(--mono);}
+
+  label{display:block;font-size:11.5px;color:var(--text-dim);margin:8px 0 4px;}
+  input[type=text],
+  input[type=number],
+  input[type=date],
+  select{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:6px;padding:8px 9px;font-size:13.5px;font-family:var(--mono);}
+  input:focus,
+  select:focus{outline:none;border-color:var(--gold);}
+  .row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;}
+
+  button.btn{background:var(--gold);color:#1a1a1a;border:none;border-radius:6px;
+    padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;margin-top:12px;width:100%;}
+  button.btn:hover{filter:brightness(1.08);}
+  button.btn.secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--line);}
+  button.btn.secondary:hover{border-color:var(--text-dim);}
+  button.btn.danger{background:transparent;color:var(--red);border:1px solid rgba(226,67,44,.4);}
+  button.btn.small{width:auto;padding:5px 10px;font-size:11.5px;margin-top:0;}
+
+  .dropzone{border:1.5px dashed var(--line);border-radius:8px;padding:18px 10px;text-align:center;
+    color:var(--text-dim);font-size:12.5px;cursor:pointer;margin-top:8px;}
+  .dropzone.drag{border-color:var(--gold);color:var(--gold);background:rgba(212,175,55,.05);}
+  .log{font-family:var(--mono);font-size:11.5px;white-space:pre-wrap;background:#0d0e10;
+    border:1px solid var(--line);border-radius:6px;padding:10px;margin-top:10px;max-height:220px;
+    overflow-y:auto;color:var(--text-dim);line-height:1.5;}
+  .log .ok{color:var(--green);}
+  .log .err{color:var(--red);}
+  .log .warn{color:var(--gold);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;color:var(--text-faint);font-weight:600;font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.04em;padding:6px 8px;border-bottom:1px solid var(--line);}
+  td{padding:7px 8px;border-bottom:1px solid #22242a;font-family:var(--mono);}
+  tr:hover td{background:rgba(255,255,255,.02);}
+  .data-list{max-height:320px;overflow-y:auto;}
+  .del-btn{background:none;border:none;color:var(--text-faint);cursor:pointer;font-size:14px;}
+  .del-btn:hover{color:var(--red);}
+
+  .controls-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;}
+  .controls-row .field{flex:1;min-width:150px;}
+  .controls-row button.btn{width:auto;padding:10px 20px;margin-top:0;}
+
+  .tab{background:none;border:none;color:var(--text-dim);font-size:13px;font-weight:600;
+    padding:8px 4px 10px;cursor:pointer;border-bottom:2px solid transparent;margin-right:14px;}
+  .tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+  .rank-table td.rank{font-weight:700;color:var(--gold);font-size:14px;}
+  .rank-table td.machine{font-weight:700;font-size:14px;}
+
+  .pos{color:var(--green);} .neg{color:var(--red);}
+
+  .empty{color:var(--text-faint);font-size:12.5px;text-align:center;padding:30px 0;}
+  .foot-note{color:var(--text-faint);font-size:11px;margin-top:20px;line-height:1.6;}
+  .date-nav{display:flex;gap:6px;margin-top:6px;}
+  .date-nav button.btn.small{flex:1;padding:8px 6px;font-size:12px;}
+  details.breakdown{margin-top:6px;border-top:1px solid var(--line);}
+  details.breakdown > summary{cursor:pointer;padding:12px 2px;color:var(--text-dim);font-size:12.5px;font-weight:600;list-style:none;}
+  details.breakdown > summary::-webkit-details-marker{display:none;}
+  details.breakdown > summary::before{content:'▶ ';color:var(--gold);}
+  details.breakdown[open] > summary::before{content:'▼ ';}
+  .actual-summary table td:first-child{white-space:normal;min-width:120px;font-family:var(--sans);}
+  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;
+    align-items:flex-start;justify-content:center;z-index:50;overflow-y:auto;padding:40px 16px;}
+  .modal-backdrop.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;
+    width:380px;max-width:92vw;}
+  .modal.wide{width:640px;}
+  .modal h3{margin:0 0 14px;font-size:14px;}
+
+  /* top3 summary */
+  .summary-group{margin-bottom:22px;}
+  .summary-group h3{font-size:13px;color:var(--text-dim);margin:0 0 10px;font-weight:600;}
+  .podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  @media (max-width:700px){ .podium{grid-template-columns:minmax(0,1fr);} }
+  .podium-card{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px;position:relative;}
+  .podium-card .rankmark{font-size:11px;font-weight:700;letter-spacing:.05em;margin-bottom:6px;}
+  .podium-card.r1 .rankmark{color:var(--gold);}
+  .podium-card.r2 .rankmark{color:var(--silver);}
+  .podium-card.r3 .rankmark{color:var(--bronze);}
+  .podium-card .num{font-size:24px;font-weight:700;font-family:var(--mono);}
+  .podium-card .meta{font-size:11.5px;color:var(--text-dim);margin-top:6px;line-height:1.7;}
+
+  /* machine manager */
+  .machine-block{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px;background:var(--panel-2);}
+  .machine-block .mtop{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px;}
+  .machine-block .mtop .field{flex:1;}
+  .spec-grid{display:grid;grid-template-columns:50px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:6px;font-size:11.5px;align-items:center;margin-bottom:5px;}
+  .spec-grid.head{color:var(--text-faint);font-size:10px;text-transform:uppercase;}
+  .spec-grid input{padding:5px 6px;font-size:12px;}
+
+  /* 機種別グラフ */
+
+  /* 全体の細かい動き */
+  .tab{transition:color .25s ease, border-color .25s ease;}
+  button.btn{transition:filter .15s ease, transform .1s ease;}
+  button.btn:active{transform:scale(.97);}
+  .podium-card{transition:transform .2s ease, box-shadow .2s ease;}
+  .podium-card:hover{transform:translateY(-3px);box-shadow:0 6px 16px rgba(0,0,0,.35);}
+  
+  .card{animation:fade-in .35s ease both;}
+
+/* ============ スマホ・タブレット向けレスポンシブ対応 ============ */
+@media (max-width: 900px){
+  .app{padding:14px 12px 50px;}
+  .topbar{gap:10px;}
+  .brand h1{font-size:17px;}
+  .hall-tag{font-size:11.5px;gap:10px;padding:5px 8px;}
+}
+
+@media (max-width: 700px){
+  /* 9個並ぶタブは折り返さず、横スクロールできる帯にする */
+
+  .tab{flex:0 0 auto;font-size:12px;margin-right:10px;white-space:nowrap;}
+
+  /* テーブルは列を圧縮するのではなく、横スクロールで全列表示する */
+  table{display:block;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  table thead,
+  table tbody{display:table;width:auto;min-width:100%;}
+  th,
+  td{white-space:nowrap;}
+  .data-list{overflow-x:auto;}
+
+  /* 入力フォームは1カラムにして押しやすくする */
+  .row2{grid-template-columns:minmax(0,1fr);}
+  .controls-row .field{min-width:120px;}
+
+  /* 機種別グラフの行（ラベル／バー／数値の3カラム）は縦積みに */
+
+  /* モーダルは画面幅いっぱいに近づける */
+  .modal{width:100%;max-width:96vw;padding:16px;}
+
+  /* 機種管理の見出し行（設定/BIG/REG/機械割）も横スクロール対応 */
+  .spec-grid{grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);font-size:11px;}
+  .machine-block .mtop{flex-wrap:wrap;}
+}
+
+@media (max-width: 420px){
+  .brand .sub{display:none;}
+  button.btn.small{font-size:11px;padding:4px 8px;}
+}
+
+@keyframes fade-in{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="lamp"></span>
+      <h1>ジャグラー設定推測ボード</h1>
+      <span class="sub">日付指定検証・軽量版</span>
+    </div>
+    <div class="hall-tag">
+      <span>ホール: <b id="tagHall">-</b></span>
+      <span>登録機種: <b id="tagMachines">-</b></span>
+      <span>対象台: <b id="tagCount">-</b>台</span>
+      <button onclick="openSettings()">ホール設定</button>
+      <button onclick="openMachines()">機種管理</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+
+      <div class="card">
+        <h2><span class="n">01</span> Excel / CSV インポート</h2>
+        <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+          .xlsx / .csv をドラッグ&ドロップ<br>またはクリックして選択
+        </div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none">
+        <button class="btn secondary" onclick="downloadSampleXlsx()">サンプルExcelをダウンロード</button>
+        <div class="log" id="importLog">シート名 = 機種名としてインポートします。<br>（例: シート「マイジャグ」→ マイジャグラーのデータとして登録）</div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">02</span> 手動データ登録</h2>
+        <label>機種</label>
+        <select id="fMachineType"></select>
+        <div class="row2">
+          <div><label>日付</label><input type="date" id="fDate"></div>
+          <div><label>台番</label><input type="number" id="fMachine" placeholder="354"></div>
+        </div>
+        <div class="row2">
+          <div><label>差枚</label><input type="number" id="fDiff" placeholder="3395"></div>
+          <div><label>G数</label><input type="number" id="fGames" placeholder="7585"></div>
+        </div>
+        <div class="row2">
+          <div><label>BB</label><input type="number" id="fBig" placeholder="40"></div>
+          <div><label>RB</label><input type="number" id="fReg" placeholder="25"></div>
+        </div>
+        <button class="btn" onclick="addManualRow()">この内容で登録</button>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">03</span> 登録済みデータ <span id="dataCount" style="color:var(--text-faint);font-weight:400;"></span></h2>
+        <div class="row2" style="margin-bottom:8px;">
+          <div><label style="margin-top:0;">機種で絞り込み</label><select id="dataFilterType" onchange="onDataFilterChange()"><option value="">全機種</option></select></div>
+          <div><label style="margin-top:0;">日付で絞り込み</label><input type="date" id="dataFilterDate" onchange="onDataFilterChange()"></div>
+        </div>
+        <div class="data-list">
+          <table>
+            <thead><tr><th>日付</th><th>機種</th><th>台</th><th>差枚</th><th>G数</th><th>BB</th><th>RB</th><th></th></tr></thead>
+            <tbody id="dataListBody"></tbody>
+          </table>
+        </div>
+        <div id="dataListMore" style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:var(--text-faint);margin-top:6px;"></div>
+        <button class="btn secondary" onclick="exportCsv()">CSVでバックアップ出力</button>
+        <button class="btn secondary" onclick="exportJsonBackup()">JSONで完全バックアップ出力</button>
+        <input type="file" id="jsonImportInput" accept=".json" style="display:none" onchange="if(this.files[0]) importJsonBackupFile(this.files[0]); this.value='';">
+        <button class="btn secondary" onclick="document.getElementById('jsonImportInput').click()">JSONバックアップから復元</button>
+        <div id="storageUsage" style="margin-top:14px;"></div>
+        <button class="btn secondary" onclick="archiveOldData()">古いデータをアーカイブ（JSON書き出し→削除）</button>
+        <button class="btn danger" onclick="confirmClearAll()">全データ削除</button>
+      </div>
+
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="card">
+        <h2><span class="n">▶</span> 日付指定検証</h2>
+
+        <div class="controls-row">
+          <div class="field">
+            <label>検証対象日（任意の日付）</label>
+            <input type="date" id="verifyDate" onchange="renderVerifyTab()">
+            <div class="date-nav">
+              <button class="btn secondary small" onclick="shiftVerifyDate(-1)">◀ 前日</button>
+              <button class="btn secondary small" onclick="setVerifyDateToday()">今日</button>
+              <button class="btn secondary small" onclick="shiftVerifyDate(1)">翌日 ▶</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>最低G数（通算・任意）</label>
+            <input type="number" id="minGamesFilter" placeholder="例: 10000" min="0" step="1000" onchange="renderMain()">
+          </div>
+        </div>
+        <div class="foot-note" style="margin:-6px 0 10px;">
+          最低G数を入力すると、通算G数がそれ未満の台・データ不足の行を除外して表示します（判定の分母が薄いものを隠して見やすくするための機能で、実際のデータは削除されません）。
+        </div>
+
+        <div id="tabVerify"><div class="empty">データを登録すると、ここで日付を指定して候補選定ロジックを検証できます。</div></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="n">▶</span> 期間まとめて成績検証（ウォークフォワード）</h2>
+        <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:8px;line-height:1.6;">
+          期間内の実績データがある日ごとに、「その日より前のデータだけ」で候補を選び、当日の実績と答え合わせした結果を集計します。
+          配合比・順位指標・末尾実績の半減期・最低G数は、いまの設定を使います。
+        </div>
+        <div class="controls-row">
+          <div class="field"><label>開始日</label><input type="date" id="wfStart"></div>
+          <div class="field"><label>終了日</label><input type="date" id="wfEnd"></div>
+          <button class="btn" id="wfRunBtn" onclick="runWalkForward()">検証を実行</button>
+        </div>
+        <div id="wfResult"><div class="empty">期間を指定して「検証を実行」を押してください（空欄なら直近30日分の実績データで検証します）。</div></div>
+
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+          <h3 style="font-size:13px;color:var(--text-dim);margin:0 0 6px;font-weight:600;">配合比の自動探索</h3>
+          <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:8px;line-height:1.6;">
+            上の期間を時系列で「前半（学習）」と「後半（確認）」に分け、配合比・順位指標・末尾実績の半減期の組み合わせ（約3,200通り）を前半の成績で並べます。確認期間の成績には誤差幅も表示します。
+            後半の成績は、選んだ配合比が新しい日でも通用するかの確認用です。前半だけ良くて後半が悪いものは、たまたま過去に合っただけの可能性が高いです。
+          </div>
+          <div class="controls-row" style="margin-bottom:8px;">
+            <div class="field"><label>学習に使う割合（前半）</label>
+              <select id="wsTrainRatio">
+                <option value="0.5">前半50%</option>
+                <option value="0.67" selected>前半67%（おすすめ）</option>
+                <option value="0.75">前半75%</option>
+              </select>
+            </div>
+            <button class="btn" id="wsRunBtn" onclick="runWeightSearch()">自動探索を実行</button>
+          </div>
+          <div id="wsResult"></div>
+        </div>
+
+        <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
+          <h3 style="font-size:13px;color:var(--text-dim);margin:0 0 6px;font-weight:600;">設定の比較検証（A/B）</h3>
+          <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:8px;line-height:1.6;">
+            上の期間で、A（いまの設定）と、B（1か所だけ変えた設定）の両方で候補を選び、同じ日どうしで成績を比べます。
+            差の誤差幅が0をまたがなければ、どちらかが「確実に良い」と言えます。
+          </div>
+          <div class="controls-row" style="margin-bottom:8px;">
+            <div class="field"><label>比べる内容（B側の変更）</label>
+              <select id="abVariant">
+                <option value="prior">事前確率の決め方（手入力 ⇔ 自動EM）</option>
+                <option value="emValue">事前確率を「EM推定値（直近180日）」の手入力にした場合</option>
+                <option value="uniform">事前確率を「均等」の手入力にした場合</option>
+                <option value="trend">トレンドの推定方法（混合EM ⇔ 従来方式）</option>
+              </select>
+            </div>
+            <button class="btn" id="abRunBtn" onclick="runAbCompare()">比較を実行</button>
+          </div>
+          <div id="abResult"></div>
+        </div>
+      </div>
+
+      <div class="foot-note">
+        推定ロジック: 各機種の公表設定差（BIG確率・REG確率）をもとに、観測されたG数・BB・RB回数からポアソン分布による尤度を算出し、設定1〜6の事後確率を推定しています。実戦データはブレが大きいため、あくまで参考値としてご利用ください。<br>
+        「日付指定検証」は、任意の日付を指定して候補選定ロジックを確認できる画面です。指定日の前日までの直近7日間データと、指定日と同じ日付末尾の過去実績（指定日自身は除く）、末尾トレンド、曜日トレンドから「高設定期待候補」上位3台を算出し、「差枚数が低い候補」は1〜4週間の期間を切り替えて確認できます。実際にその日のデータが登録されていれば「実績」として各候補に表示します。過去の日付を指定すれば、候補選定ロジックが実際にどれだけ当たっていたかを振り返って検証できます。
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HALL SETTINGS MODAL -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <h3>ホール設定</h3>
+    <label>ホール名</label>
+    <input type="text" id="cfgHall">
+    <label>対象台番号（カンマ区切り・全機種共通）</label>
+    <input type="text" id="cfgTargets" placeholder="354,355,356,...">
+
+    <label style="margin-top:16px;">事前確率の決め方</label>
+    <select id="cfgPriorMode">
+      <option value="manual">手入力（下の入力欄の値を使う）</option>
+      <option value="auto">自動（対象日の前日までの直近180日から機種別にEM推定）</option>
+    </select>
+    <div style="color:var(--text-faint);font-size:11px;margin-top:4px;">
+      「自動」にすると、日ごとに「その日より前のデータ」から機種別の設定配分を推定して事前確率に使います。
+      G数の少ない台の推定がホールの平均的な配分に寄り、少ないデータの上振れで高設定と誤判定しにくくなります。
+      「自動」のときは下の入力欄は使いません（データが30件未満の時期だけ入力欄の値を使います）。
+    </div>
+
+    <label style="margin-top:16px;">トレンドの推定方法</label>
+    <select id="cfgTrendMethod">
+      <option value="em">混合EM（台×日ごとに設定が違ってよいモデル・v7の既定）</option>
+      <option value="pooled">従来方式（グループ内のデータを1つの設定として合算・v6以前）</option>
+    </select>
+    <div style="color:var(--text-faint);font-size:11px;margin-top:4px;">
+      従来方式は、末尾や曜日のグループ内の全データを「1つの設定」とみなすため、データが多いほど結果が1つの設定に張り付きます。
+      混合EMは「そのグループの日・台に設定1〜6がそれぞれ何%使われているか」を推定します。
+    </div>
+
+    <label style="margin-top:16px;">設定推測の事前確率（ベース設定配分・任意）</label>
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:6px;">
+      未入力・全て0の場合は「ホール既定値（設定1:65% / 2:15% / 3〜6:各5%）」として扱われます。
+      ホールのベース設定の傾向（例: 1・2が多い）が分かっている場合、比率を入力すると
+      少ないゲーム数での「上振れによる誤判定」を抑えられます。数値は合計に対する比率として
+      自動で正規化されるため、100%ちょうどにする必要はありません。
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;">
+      <div><label style="margin:0 0 2px;">設定1</label><input type="number" id="cfgPrior1" min="0" step="1"></div>
+      <div><label style="margin:0 0 2px;">設定2</label><input type="number" id="cfgPrior2" min="0" step="1"></div>
+      <div><label style="margin:0 0 2px;">設定3</label><input type="number" id="cfgPrior3" min="0" step="1"></div>
+      <div><label style="margin:0 0 2px;">設定4</label><input type="number" id="cfgPrior4" min="0" step="1"></div>
+      <div><label style="margin:0 0 2px;">設定5</label><input type="number" id="cfgPrior5" min="0" step="1"></div>
+      <div><label style="margin:0 0 2px;">設定6</label><input type="number" id="cfgPrior6" min="0" step="1"></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="btn secondary small" style="flex:1;" onclick="resetPriorToDefault()">ホール既定値 65/15/5/5/5/5</button>
+      <button class="btn secondary small" style="flex:1;" onclick="setPriorUniform()">均等（各16.7%）</button>
+    </div>
+    <div style="border:1px dashed var(--line);border-radius:8px;padding:10px;margin-top:10px;">
+      <div style="font-size:11.5px;color:var(--text-dim);margin-bottom:6px;">データからホールの設定配分を推定する（EM法）</div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <select id="emPeriod" style="flex:1;">
+          <option value="90">直近90日</option>
+          <option value="180" selected>直近180日</option>
+          <option value="365">直近1年</option>
+          <option value="0">全期間</option>
+        </select>
+        <button class="btn secondary small" style="flex:1;" onclick="runHallPriorEstimate()">推定して入力欄に入れる</button>
+      </div>
+      <div id="emResult" style="font-size:11px;color:var(--text-faint);margin-top:6px;line-height:1.6;">
+        登録データ全体から「このホールで設定1〜6がそれぞれ何%くらい使われているか」を推定します。結果は入力欄に入るだけで、「保存」を押すまで反映されません。
+      </div>
+    </div>
+
+    <label style="margin-top:16px;">末尾実績の時間減衰（半減期・日）</label>
+    <input type="number" id="cfgTailHalfLife" min="0" step="10">
+    <div style="color:var(--text-faint);font-size:11px;margin-top:4px;">
+      同じ日付末尾の過去実績を、古いものほど軽く扱います。例: 90 なら90日前のデータは半分、180日前は1/4の重み。0 にすると全期間を同じ重みで扱います（v3以前と同じ）。
+    </div>
+
+    <label style="margin-top:16px;">候補スコアの配合比</label>
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:6px;">
+      週間実績・末尾実績・末尾トレンド・曜日トレンドの重み。比率だけが効くので合計を揃える必要はありません。0 にした要素はスコアに使いません。
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">
+      <div><label style="margin:0 0 2px;">週間</label><input type="number" id="cfgSwWeek" min="0" step="0.1"></div>
+      <div><label style="margin:0 0 2px;">末尾実績</label><input type="number" id="cfgSwTail" min="0" step="0.1"></div>
+      <div><label style="margin:0 0 2px;">トレンド</label><input type="number" id="cfgSwTrend" min="0" step="0.1"></div>
+      <div><label style="margin:0 0 2px;">曜日</label><input type="number" id="cfgSwWeekday" min="0" step="0.1"></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button class="btn secondary small" style="flex:1;" onclick="fillScoreWeights(DEFAULT_SCORE_WEIGHTS)">現行値 2.0/1.5/1.0/0.5</button>
+      <button class="btn secondary small" style="flex:1;" onclick="fillScoreWeights(ROADMAP_SCORE_WEIGHTS)">ロードマップ初期値 3.0/1.0/0.7/0.3</button>
+    </div>
+
+    <label style="margin-top:16px;">候補の順位付け指標</label>
+    <select id="cfgRankMetric">
+      <option value="expected">期待設定（1〜6の加重平均・従来どおり）</option>
+      <option value="high4">設定4以上の確率</option>
+    </select>
+    <div style="color:var(--text-faint);font-size:11px;margin-top:4px;">
+      期待設定は「設定1と6が半々」と「全部3」を区別できません。設定4以上の確率は高設定に座れる見込みを直接表します。どちらを選んでも両方の値をカードに表示します。
+    </div>
+
+    <label style="margin-top:16px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);">
+      <input type="checkbox" id="cfgExcludeWeekFromTail" style="width:auto;margin:0;">
+      末尾実績から直近7日間（週間実績と同じ期間）を除く
+    </label>
+    <div style="color:var(--text-faint);font-size:11px;">
+      同じデータが週間・末尾の両方で二重に効くのを防ぎます。重なるのは主に「31日がある月の翌月1日」を対象日にしたときです。
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal('settingsModal')">キャンセル</button>
+      <button class="btn" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- MACHINE MANAGER MODAL -->
+<div class="modal-backdrop" id="machinesModal">
+  <div class="modal wide">
+    <h3>機種管理（シート名 = 機種として認識されます）</h3>
+    <div id="machineList"></div>
+    <button class="btn secondary" onclick="addMachineDraft()">+ 新しい機種を追加</button>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal('machinesModal')">キャンセル</button>
+      <button class="btn" onclick="saveMachines()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI相談用テキスト MODAL -->
+<div class="modal-backdrop" id="aiPromptModal">
+  <div class="modal wide">
+    <h3>AI相談用テキスト</h3>
+    <div style="color:var(--text-dim);font-size:12px;margin-bottom:10px;">
+      下のテキストをコピーして、ClaudeやChatGPTなどのAIチャットに貼り付けて相談してください。
+    </div>
+    <label style="margin-top:0;">カスタム条件（任意・保存され、次回以降も自動的に先頭へ付与されます）</label>
+    <textarea id="aiPromptPrefix" placeholder="例: 予算は1日2万円まで。攻めすぎず手堅い立ち回りを優先。狙い台は最大3台まで提案してほしい。" style="width:100%;height:70px;background:var(--panel-2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:12.5px;line-height:1.5;resize:vertical;margin-bottom:8px;" onchange="saveAiPromptPrefix()"></textarea>
+    <textarea id="aiPromptText" readonly style="width:100%;height:320px;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:var(--mono, monospace);font-size:12px;line-height:1.6;resize:vertical;"></textarea>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn secondary" onclick="closeModal('aiPromptModal')">閉じる</button>
+      <button class="btn" id="aiCopyBtn" onclick="copyAiPrompt()">コピー</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   機種スペック（設定差データ）
+   ・BIG CHANCE = BIG確率の分母 / BONUS GAME = REG確率の分母
+   ・payout は参考機械割（%）。推測計算には使用せず表示用。
+   ============================================================ */
+const DEFAULT_MACHINES = [
+  {
+    id: 'mister_juggler',
+    name: 'ミスタージャグラー',
+    aliases: ['ミスタージャグラー','ミスジャグ','mister_juggler','misterjuggler','mrjuggler'],
+    table: {
+      1:{big:268.6, reg:374.5, payout:97.0},
+      2:{big:267.5, reg:354.2, payout:98.5},
+      3:{big:260.1, reg:331.0, payout:99.9},
+      4:{big:249.2, reg:291.3, payout:102.0},
+      5:{big:240.9, reg:257.0, payout:104.4},
+      6:{big:237.4, reg:237.4, payout:106.8},
+    }
+  },
+  {
+    id: 'my_juggler',
+    name: 'マイジャグラー',
+    aliases: ['マイジャグ','マイジャグラー','myjuggler','my_juggler','マイジャグラーv'],
+    table: {
+      1:{big:273.1, reg:409.6, payout:97.0},
+      2:{big:270.8, reg:385.5, payout:98.0},
+      3:{big:266.4, reg:336.1, payout:99.9},
+      4:{big:254.0, reg:290.0, payout:102.8},
+      5:{big:240.1, reg:268.6, payout:105.3},
+      6:{big:229.1, reg:229.1, payout:109.4},
+    }
+  },
+  {
+    id: 'aim_juggler',
+    name: 'アイムジャグラー',
+    aliases: ['アイムジャグラー','ネオアイム','アイム','aimjuggler','aim_juggler','アイムジャグラーEX'],
+    table: {
+      1:{big:273.1, reg:439.8, payout:97.63},
+      2:{big:269.7, reg:399.6, payout:98.50},
+      3:{big:269.7, reg:331.0, payout:100.62},
+      4:{big:259.0, reg:315.1, payout:102.80},
+      5:{big:259.0, reg:255.0, payout:104.93},
+      6:{big:255.0, reg:255.0, payout:107.39},
+    }
+  },
+  {
+    id: 'gogo_juggler',
+    name: 'ゴーゴージャグラー',
+    aliases: ['ゴーゴージャグラー','ゴーゴー','ゴージャグ','gogojuggler','gogo_juggler'],
+    table: {
+      1:{big:259.0, reg:354.2, payout:99.08},
+      2:{big:258.0, reg:332.7, payout:100.05},
+      3:{big:257.0, reg:306.2, payout:101.29},
+      4:{big:254.0, reg:268.6, payout:103.51},
+      5:{big:247.3, reg:247.3, payout:105.76},
+      6:{big:234.9, reg:234.9, payout:108.51},
+    }
+  },
+  {
+    id: 'ultra_miracle_juggler',
+    name: 'ウルトラミラクルジャグラー',
+    aliases: ['ウルトラミラクルジャグラー','ウルミラ','ultramiraclejuggler','ultra_miracle_juggler'],
+    table: {
+      1:{big:267.5, reg:425.6, payout:null},
+      2:{big:261.1, reg:402.1, payout:null},
+      3:{big:256.0, reg:350.5, payout:null},
+      4:{big:242.7, reg:322.8, payout:null},
+      5:{big:233.2, reg:297.9, payout:null},
+      6:{big:216.3, reg:277.7, payout:null},
+    }
+  },
+  {
+    id: 'juggler_girls',
+    name: 'ジャグラーガールズ',
+    aliases: ['ジャグラーガールズ','ガールズ','jugglergirls','juggler_girls'],
+    table: {
+      1:{big:273.1, reg:381.0, payout:98.78},
+      2:{big:270.8, reg:350.5, payout:99.71},
+      3:{big:260.1, reg:316.6, payout:101.77},
+      4:{big:250.1, reg:281.3, payout:104.10},
+      5:{big:243.6, reg:270.8, payout:106.00},
+      6:{big:226.0, reg:252.1, payout:109.52},
+    }
+  },
+  {
+    id: 'funky_juggler',
+    name: 'ファンキージャグラー',
+    aliases: ['ファンキージャグラー','ファンキー','funkyjuggler','funky_juggler'],
+    table: {
+      1:{big:266.4, reg:439.8, payout:97.0},
+      2:{big:259.0, reg:407.1, payout:98.5},
+      3:{big:256.0, reg:366.1, payout:99.8},
+      4:{big:249.2, reg:322.8, payout:102.0},
+      5:{big:240.1, reg:299.3, payout:104.3},
+      6:{big:219.9, reg:262.1, payout:109.0},
+    }
+  },
+  {
+    id: 'happy_juggler',
+    name: 'ハッピージャグラー',
+    aliases: ['ハッピージャグラー','ハッピー','happyjuggler','happy_juggler'],
+    table: {
+      1:{big:273.1, reg:397.2, payout:98.78},
+      2:{big:270.8, reg:362.1, payout:100.03},
+      3:{big:263.2, reg:332.7, payout:101.89},
+      4:{big:254.0, reg:300.6, payout:105.08},
+      5:{big:239.2, reg:273.1, payout:108.33},
+      6:{big:226.0, reg:256.0, payout:111.22},
+    }
+  }
+];
+
+/* デフォルトの事前確率（ホール既定値: 設定1:65% / 2:15% / 3〜6:各5%）。
+   ホール設定でユーザーが独自の配分を指定した場合のみ上書きされる。
+   設定1〜6を均等にしたい場合は、ホール設定の「均等」ボタンで各値を同じにする。 */
+const DEFAULT_PRIOR = {1:0.65, 2:0.15, 3:0.05, 4:0.05, 5:0.05, 6:0.05};
+function normalizePrior(p){
+  const out = {};
+  let sum = 0;
+  for(let s=1;s<=6;s++){ out[s] = Math.max(0, Number(p && p[s]) || 0); sum += out[s]; }
+  if(sum <= 0) return {...DEFAULT_PRIOR};
+  for(let s=1;s<=6;s++) out[s] /= sum;
+  return out;
+}
+function currentPrior(){
+  return (CONFIG && CONFIG.prior) ? normalizePrior(CONFIG.prior) : DEFAULT_PRIOR;
+} // 「高設定」とみなす期待値のしきい値（1〜6の重み付き平均。6に近いほど高設定寄り）
+const STORAGE_KEY = 'juggler_data_v2';
+const CONFIG_KEY = 'juggler_config_v2';
+const MACHINES_KEY = 'juggler_machines_v2';
+
+let CONFIG = loadConfig();
+let MACHINES = loadMachines();
+let DATA = loadData();
+
+function loadConfig(){
+  const raw = localStorage.getItem(CONFIG_KEY);
+  if(raw){
+    try{
+      const v = JSON.parse(raw);
+      if(!v.prior) v.prior = {...DEFAULT_PRIOR}; // 旧バージョンの保存データを補完（挙動は変わらない）
+      return v;
+    }catch(e){}
+  }
+  return {
+    hall: 'PLAZA博多',
+    hallId: 'PLAZA_HAKATA',
+    targets: [354,355,356,357,358,359,360,361,362,363,364,370,371,372,373,374,375],
+    prior: {...DEFAULT_PRIOR}
+  };
+}
+function saveConfig(){ localStorage.setItem(CONFIG_KEY, JSON.stringify(CONFIG)); invalidateAnalysisCache(); }
+
+function loadMachines(){
+  const raw = localStorage.getItem(MACHINES_KEY);
+  let list = null;
+  if(raw){ try{ const v = JSON.parse(raw); if(Array.isArray(v) && v.length) list = v; }catch(e){} }
+  if(!list){ return JSON.parse(JSON.stringify(DEFAULT_MACHINES)); }
+  // 以前のバージョンで保存されたデータに、新しく追加された既定機種をマージする
+  const existingIds = new Set(list.map(m=>m.id));
+  let changed = false;
+  DEFAULT_MACHINES.forEach(dm=>{
+    if(!existingIds.has(dm.id)){ list.push(JSON.parse(JSON.stringify(dm))); changed = true; }
+  });
+  if(changed) localStorage.setItem(MACHINES_KEY, JSON.stringify(list));
+  return list;
+}
+function saveMachinesToStorage(){ localStorage.setItem(MACHINES_KEY, JSON.stringify(MACHINES)); invalidateAnalysisCache(); }
+
+function loadData(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){} }
+  return [];
+}
+/* 保存に失敗した場合（容量オーバー等）でもアプリを止めず、メモリ上のデータで動かし続ける。
+   失敗したことはアラートと保存容量表示で知らせる（そのままページを閉じると未保存分は失われる）。 */
+let lastSaveFailed = false;
+let storageWarned = false;
+function saveData(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+    lastSaveFailed = false;
+  }catch(e){
+    lastSaveFailed = true;
+    alert('ブラウザの保存容量が足りず、データを保存できませんでした。\n\n'+
+      '今の内容はこの画面を閉じるまでは使えますが、閉じると未保存分は失われます。\n'+
+      '「JSONで完全バックアップ出力」で保存したうえで、「古いデータをアーカイブ」で容量を空けてください。');
+  }
+  buildDataIndex();
+  const u = storageUsage();
+  if(!lastSaveFailed && !storageWarned && u.ratio >= STORAGE_ALERT_RATIO){
+    storageWarned = true;
+    alert(`ブラウザの保存容量の ${Math.round(u.ratio*100)}% を使用しています。\n上限に達すると新しいデータを保存できなくなります。\n「古いデータをアーカイブ」で古いデータをJSONに書き出して容量を空けてください。`);
+  }
+}
+
+/* ============ 保存容量の管理 ============
+   localStorage の上限はブラウザごとにおおむね 5MB。Chrome系は文字列を UTF-16（1文字2バイト）で
+   数えるため、ここでも「文字数×2」で見積もる（Firefox などではこれより余裕がある＝安全側の見積もり）。 */
+const STORAGE_LIMIT_BYTES = 5 * 1024 * 1024;
+const STORAGE_WARN_RATIO  = 0.7;  // 表示を黄色にする
+const STORAGE_ALERT_RATIO = 0.9;  // 保存時にアラートを出す
+function storageUsage(){
+  let total = 0, data = 0;
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      const n = (k.length + (localStorage.getItem(k) || '').length) * 2;
+      total += n;
+      if(k === STORAGE_KEY) data = n;
+    }
+  }catch(e){}
+  return {total, data, ratio: total / STORAGE_LIMIT_BYTES};
+}
+function fmtBytes(n){ return n >= 1024*1024 ? (n/1024/1024).toFixed(2)+'MB' : Math.round(n/1024)+'KB'; }
+function renderStorageUsage(){
+  const el = document.getElementById('storageUsage');
+  if(!el) return;
+  const u = storageUsage();
+  const pct = Math.min(100, u.ratio*100);
+  const color = lastSaveFailed || u.ratio >= STORAGE_ALERT_RATIO ? 'var(--red)' : (u.ratio >= STORAGE_WARN_RATIO ? 'var(--gold)' : 'var(--green)');
+  const msg = lastSaveFailed
+    ? '<b style="color:var(--red);">保存に失敗しています。バックアップを出力して容量を空けてください。</b>'
+    : (u.ratio >= STORAGE_WARN_RATIO ? '<span style="color:var(--gold);">上限が近づいています。古いデータのアーカイブをおすすめします。</span>' : '');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-dim);">
+      <span>保存容量（目安）</span><span>${fmtBytes(u.total)} / ${fmtBytes(STORAGE_LIMIT_BYTES)}（${pct.toFixed(0)}%）</span>
+    </div>
+    <div style="height:5px;background:var(--panel-2);border-radius:3px;margin-top:4px;overflow:hidden;">
+      <div style="height:100%;width:${pct}%;background:${color};"></div>
+    </div>
+    ${msg ? `<div style="font-size:11px;margin-top:4px;">${msg}</div>` : ''}`;
+}
+
+/* 古いデータのアーカイブ：基準日より前のデータをJSONに書き出し、確認後にアプリから取り除く。
+   書き出したファイルは「JSONバックアップから復元」→「キャンセル（マージ）」で元に戻せる。 */
+function archiveOldData(){
+  if(!DATA.length){ alert('アーカイブするデータがありません。'); return; }
+  const oldest = SORTED_DATES[0];
+  const suggest = shiftDateStr(toDateStr(new Date()), -365);
+  const input = prompt(
+    `この日付より前のデータをJSONに書き出して、アプリから取り除きます（YYYY-MM-DD）。\n`+
+    `現在のデータ: ${oldest} 〜 ${SORTED_DATES[SORTED_DATES.length-1]}（${DATA.length}件）`, suggest);
+  if(input === null) return;
+  const cutoff = input.trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(cutoff) || isNaN(new Date(cutoff+'T00:00:00').getTime())){
+    alert('日付は 2025-10-01 のような形式で入力してください。'); return;
+  }
+  const archived = DATA.filter(r => r.date < cutoff);
+  if(!archived.length){ alert(`${cutoff} より前のデータはありません。`); return; }
+  if(!confirm(`${cutoff} より前の ${archived.length}件（全${DATA.length}件中）をアーカイブします。\n\n`+
+    `※末尾実績は全期間のデータを使うため、アーカイブすると候補の計算結果が変わることがあります。\n\n`+
+    `「OK」でJSONファイルを書き出します（まだ削除はしません）。`)) return;
+
+  const d = new Date();
+  downloadJson({
+    _type: 'juggler_app_backup',
+    _version: JSON_BACKUP_VERSION,
+    _archive: {before: cutoff},
+    exportedAt: d.toISOString(),
+    config: CONFIG,
+    machines: MACHINES,
+    data: archived
+  }, `juggler_archive_before_${cutoff.replace(/-/g,'')}.json`);
+
+  if(!confirm(`JSONファイル（juggler_archive_before_${cutoff.replace(/-/g,'')}.json）が保存されたことを確認してから「OK」を押してください。\n`+
+    `「OK」でアプリから ${archived.length}件を取り除きます。「キャンセル」なら何も削除しません。`)) return;
+  DATA = DATA.filter(r => r.date >= cutoff);
+  saveData();
+  renderDataList();
+  alert(`${archived.length}件をアーカイブしました。必要になったら「JSONバックアップから復元」→「キャンセル（マージ）」で戻せます。`);
+}
+
+/* ============ データ索引（高速化用）============
+   ウォークフォワード検証などで computeCandidateAnalysis / computeTrendAnalysis が
+   日付ごとに繰り返し呼ばれると、そのたびに DATA 全体を filter するのが重くなる
+   （データ件数 × 検証対象日数で処理量が膨らみ、ページが応答しなくなる原因になっていた）。
+   ここでは日付順にソートした索引を1つ作っておき、必要な期間だけを二分探索で
+   取り出せるようにする。フィルタ条件・結果は従来の DATA.filter(...) と完全に同一。
+   DATA を書き換える処理は必ず saveData() を通るため、そこで索引を再構築する。 */
+let DATE_ROWS = new Map();        // dateStr -> その日の全行
+let SORTED_DATES = [];            // 日付昇順（重複なし）
+let TYPE_DATE_ROWS = new Map();   // machineType -> (dateStr -> その日・その機種の行)
+let TYPE_SORTED_DATES = new Map();// machineType -> 日付昇順（重複なし）
+let TAIL_SORTED_DATES = [[],[],[],[],[],[],[],[],[],[]];
+
+function buildDataIndex(){
+  invalidateAnalysisCache(); // データが変わったので計算結果のキャッシュを破棄
+  DATE_ROWS = new Map();
+  TYPE_DATE_ROWS = new Map();
+  DATA.forEach(r => {
+    if(!DATE_ROWS.has(r.date)) DATE_ROWS.set(r.date, []);
+    DATE_ROWS.get(r.date).push(r);
+    if(!TYPE_DATE_ROWS.has(r.machineType)) TYPE_DATE_ROWS.set(r.machineType, new Map());
+    const tmap = TYPE_DATE_ROWS.get(r.machineType);
+    if(!tmap.has(r.date)) tmap.set(r.date, []);
+    tmap.get(r.date).push(r);
+  });
+  SORTED_DATES = [...DATE_ROWS.keys()].sort();
+  TYPE_SORTED_DATES = new Map();
+  TYPE_DATE_ROWS.forEach((tmap, type) => TYPE_SORTED_DATES.set(type, [...tmap.keys()].sort()));
+  TAIL_SORTED_DATES = Array.from({length:10}, () => []);
+  SORTED_DATES.forEach(d => { TAIL_SORTED_DATES[dayTail(d)].push(d); }); // SORTED_DATES が昇順なので push だけで昇順が保たれる
+}
+function lowerBound(arr, target){ // target 以上が現れる最初の位置
+  let lo=0, hi=arr.length;
+  while(lo<hi){ const mid=(lo+hi)>>1; if(arr[mid] < target) lo=mid+1; else hi=mid; }
+  return lo;
+}
+function upperBound(arr, target){ // target より大きい値が現れる最初の位置
+  let lo=0, hi=arr.length;
+  while(lo<hi){ const mid=(lo+hi)>>1; if(arr[mid] <= target) lo=mid+1; else hi=mid; }
+  return lo;
+}
+function rowsFromDateRange(sortedDates, dateMap, startStr, endStr){
+  if(!sortedDates || !sortedDates.length) return [];
+  const lo = lowerBound(sortedDates, startStr);
+  const hi = upperBound(sortedDates, endStr);
+  const out = [];
+  for(let i=lo;i<hi;i++){
+    const rows = dateMap.get(sortedDates[i]);
+    if(rows) for(let j=0;j<rows.length;j++) out.push(rows[j]);
+  }
+  return out;
+}
+function rowsForDateExact(dateStr){ const rows = DATE_ROWS.get(dateStr); return rows ? rows.slice() : []; }
+function rowsForTailBefore(tail, beforeDateStr){
+  const dates = TAIL_SORTED_DATES[tail];
+  if(!dates || !dates.length) return [];
+  const hi = lowerBound(dates, beforeDateStr); // beforeDateStr より前（未満）の日付だけを対象にする
+  const out = [];
+  for(let i=0;i<hi;i++){
+    const rows = DATE_ROWS.get(dates[i]);
+    if(rows) for(let j=0;j<rows.length;j++) out.push(rows[j]);
+  }
+  return out;
+}
+function rowsForTypeInRange(filterType, startStr, endStr){
+  if(filterType){
+    return rowsFromDateRange(TYPE_SORTED_DATES.get(filterType), TYPE_DATE_ROWS.get(filterType), startStr, endStr);
+  }
+  return rowsFromDateRange(SORTED_DATES, DATE_ROWS, startStr, endStr);
+}
+
+function recordKey(r){ return r.date + '_' + r.machineType + '_' + r.machine; }
+function machineById(id){ return MACHINES.find(m => m.id === id); }
+function machineName(id){ const m = machineById(id); return m ? m.name : '(不明な機種)'; }
+/* HTML に埋め込む文字列のエスケープ（機種名・シート名などに " や < が入っても画面が崩れないようにする） */
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]); }
+
+function normalizeName(s){
+  return String(s).trim().toLowerCase().replace(/[\s　]/g,'');
+}
+function matchMachineBySheet(sheetName){
+  const n = normalizeName(sheetName);
+  for(const m of MACHINES){
+    if(normalizeName(m.name) === n) return m;
+    if(m.aliases.some(a => normalizeName(a) === n)) return m;
+  }
+  return null;
+}
+
+/* ============ 統計計算 ============ */
+/* 計算結果をキャッシュするだけで、返す値は従来と完全に同一。
+   末尾トレンド分析で1日ごとに尤度を評価するようになり呼び出し回数が増えたための高速化。 */
+const _logFactCache = [0, 0];
+function logFactorial(n){
+  if(n < 0 || !isFinite(n)) return 0;
+  n = Math.round(n);
+  if(_logFactCache[n] !== undefined) return _logFactCache[n];
+  let s = _logFactCache[_logFactCache.length-1];
+  for(let i=_logFactCache.length; i<=n; i++){ s += Math.log(i); _logFactCache[i] = s; }
+  return _logFactCache[n];
+}
+function logPoisson(k, lambda){
+  if(lambda <= 0) lambda = 1e-9;
+  return -lambda + k*Math.log(lambda) - logFactorial(k);
+}
+/* BIG/REG の回数だけから設定1〜6の事後確率を求める（ポアソン尤度）。 */
+function estimateSetting(machineId, games, big, reg){
+  const m = machineById(machineId);
+  const table = m ? m.table : DEFAULT_MACHINES[0].table;
+  const prior = priorFor(machineId);
+  const logL = {};
+  for(let s=1;s<=6;s++){
+    const pBig = 1/table[s].big;
+    const pReg = 1/table[s].reg;
+    logL[s] = logPoisson(big, games*pBig) + logPoisson(reg, games*pReg) + Math.log(prior[s] || 1e-12);
+  }
+  const maxLog = Math.max(...Object.values(logL));
+  let sum = 0;
+  const probs = {};
+  for(let s=1;s<=6;s++){ probs[s] = Math.exp(logL[s]-maxLog); sum += probs[s]; }
+  for(let s=1;s<=6;s++){ probs[s] /= sum; }
+  let best=1, bestP=-1;
+  for(let s=1;s<=6;s++){ if(probs[s] > bestP){ bestP = probs[s]; best = s; } }
+  const expected = Object.entries(probs).reduce((a,[s,p]) => a + Number(s)*p, 0);
+  const sortedP = Object.values(probs).slice().sort((a,b)=>b-a);
+  const margin = sortedP[0] - sortedP[1];
+  let confidence = '低';
+  if(margin > 0.15) confidence = '高';
+  else if(margin > 0.07) confidence = '中';
+  return {best, bestP, probs, expected, confidence};
+}
+function derive(games, big, reg, diff){
+  const payoutRate = games>0 ? ((diff + games*3) / (games*3)) * 100 : 0;
+  const synth = (big+reg)>0 ? games/(big+reg) : null;
+  const bigRate = big>0 ? games/big : null;
+  const regRate = reg>0 ? games/reg : null;
+  return {payoutRate, synth, bigRate, regRate};
+}
+
+/* ============ 週間集計・日付末尾別集計 共通ヘルパー ============ */
+const WD = ['日','月','火','水','木','金','土'];
+function dayTail(dateStr){
+  const day = parseInt(dateStr.slice(8,10), 10);
+  return day % 10;
+}
+/* 台番×機種ごとに複数日のデータを合算する */
+function aggregateRows(rows){
+  const map = new Map();
+  rows.forEach(r=>{
+    const key = r.machineType+'_'+r.machine;
+    if(!map.has(key)) map.set(key, {machineType:r.machineType, machine:r.machine, diff:0, games:0, big:0, reg:0, items:[]});
+    const g = map.get(key);
+    g.diff += r.diff; g.games += r.games; g.big += r.big; g.reg += r.reg;
+    g.items.push(r);
+  });
+  return [...map.values()];
+}
+function analyzedAgg(agg){
+  return agg.map(g => ({
+    ...g,
+    est: estimateSetting(g.machineType, g.games, g.big, g.reg),
+    der: derive(g.games, g.big, g.reg, g.diff),
+    days: g.items.length
+  }));
+}
+
+/* ============================================================
+   末尾トレンド分析（期間拡張・時間減衰重み付け）
+   ------------------------------------------------------------
+   【設計方針】
+   ・既存の estimateSetting / aggregateRows / analyzedAgg / インポート処理には
+     一切手を加えず、ここに新しい関数群を「追加」する形にしている。
+   ・重みを「BB/RB回数」に掛けることはしない。logPoisson が使う logFactorial(k) は
+     整数前提の実装なので、小数の回数を渡すと計算が壊れるため。
+     代わりに「1日ごとに対数尤度を計算し、その対数尤度に重みを掛けて合算する」
+     （重み付き尤度法）。
+   ・重みを全て 1.0 にした場合、ポアソン分布の再生性により設定1〜6の事後確率は
+     既存の「G数・BB・RBを合算してから estimateSetting」と数学的に一致する。
+     よって既存表示との互換性が保たれる。
+   ・1日ごとに、その台の機種スペックで尤度を評価するため、複数機種を混ぜた
+     集計（ホール全体の末尾傾向など）でも機種差を正しく織り込める。
+   ============================================================ */
+
+/* 比較用の3期間。各ウィンドウ内は「重み1.0（等重み）」で素の傾向を見る。 */
+const TREND_WINDOWS = [
+  {key:'d7',  label:'直近7日',  days:7,  note:'直近傾向'},
+  {key:'d30', label:'過去30日', days:30, note:'中期傾向'},
+  {key:'d90', label:'過去90日', days:90, note:'長期傾向'}
+];
+/* 「総合」で使う時間減衰の重み。経過日数が小さいほど重い。 */
+const TIME_WEIGHT_BANDS = [
+  {max:7,  w:1.00, label:'〜7日'},
+  {max:14, w:0.60, label:'8〜14日'},
+  {max:30, w:0.35, label:'15〜30日'},
+  {max:90, w:0.15, label:'31〜90日'}
+];
+/* サンプル数ガード。これを下回る場合は期待値を出さず「データ不足」とする。 */
+const TREND_MIN_RECORDS = 5;      // 対象データ件数（台×日 の件数）
+const TREND_MIN_GAMES   = 5000;   // 重み付き総G数
+/* 翌日候補・日付指定検証のスコアにトレンドを反映するか（false で従来の順位に戻る） */
+const USE_TREND_IN_SCORE = true;
+/* スコアの配合比。台そのものの実績を最重視し、末尾・曜日は補正として効かせる。
+   既定値は v2 と同じ。ホール設定で上書きでき（CONFIG.scoreWeights）、
+   ROADMAP は以前のロードマップで決めた初期値（設定画面のプリセットボタン用）。 */
+const DEFAULT_SCORE_WEIGHTS = {week:2.0, tail:1.5, trend:1.0, weekday:0.5};
+const ROADMAP_SCORE_WEIGHTS = {week:3.0, tail:1.0, trend:0.7, weekday:0.3};
+const SCORE_WEIGHT_KEYS = ['week','tail','trend','weekday'];
+function normalizeScoreWeights(w){
+  const out = {};
+  SCORE_WEIGHT_KEYS.forEach(k => {
+    const v = Number(w && w[k]);
+    out[k] = (isFinite(v) && v >= 0) ? v : DEFAULT_SCORE_WEIGHTS[k];
+  });
+  return out;
+}
+function currentScoreWeights(){ return normalizeScoreWeights(CONFIG && CONFIG.scoreWeights); }
+
+/* 順位付けに使う指標。'expected'＝期待設定（1〜6の加重平均・従来どおり）、
+   'high4'＝設定4以上の確率（probs[4]+probs[5]+probs[6]）。 */
+function currentRankMetric(){ return (CONFIG && CONFIG.rankMetric === 'high4') ? 'high4' : 'expected'; }
+function high4Of(probs){ return probs ? (probs[4] + probs[5] + probs[6]) : null; }
+function fmtPct(p){ return (p === null || p === undefined) ? '-' : (p*100).toFixed(1) + '%'; }
+
+/* 週間実績と末尾実績の重複対策。true のとき、末尾実績から週間ウィンドウ（対象日の前日まで7日間）
+   に含まれる日を除外する。日付末尾が同じ日は通常10日以上離れているため、重複が実際に起きるのは
+   「31日まである月の翌月1日」を対象日にしたとき（前日の31日が末尾1）くらい。 */
+function excludeWeekFromTail(){ return !(CONFIG && CONFIG.excludeWeekFromTail === false); }
+
+/* 末尾実績の時間減衰。重み = 0.5^(経過日数 / 半減期)。0 なら全期間等重み（v3以前と同じ）。
+   回数そのものではなく対数尤度に重みを掛ける（estimateSettingWeighted と同じ方式）。 */
+const DEFAULT_TAIL_HALF_LIFE = 90;
+function tailHalfLife(){
+  const v = Number(CONFIG && CONFIG.tailHalfLife);
+  return (CONFIG && CONFIG.tailHalfLife !== undefined && isFinite(v) && v >= 0) ? v : DEFAULT_TAIL_HALF_LIFE;
+}
+function tailDecayWeight(daysAgo, halfLife){ return halfLife > 0 ? Math.pow(0.5, daysAgo / halfLife) : 1; }
+/* analyzedAgg の末尾実績版。est だけを時間減衰つきの重み付き尤度で求め、差枚・G数などの合計は素のまま。 */
+function analyzedAggTailDecay(agg, refDateStr, hlOverride){
+  const hl = (hlOverride !== undefined) ? hlOverride : tailHalfLife();
+  if(!(hl > 0)) return analyzedAgg(agg);
+  return agg.map(g => ({
+    ...g,
+    est: estimateSettingWeighted(g.items.map(r => ({...r, w: tailDecayWeight(daysAgoOf(r.date, refDateStr), hl)}))),
+    der: derive(g.games, g.big, g.reg, g.diff),
+    days: g.items.length
+  }));
+}
+
+function timeWeight(daysAgo){
+  for(const b of TIME_WEIGHT_BANDS){ if(daysAgo <= b.max) return b.w; }
+  return 0;
+}
+function daysAgoOf(dateStr, refDateStr){
+  const a = new Date(dateStr+'T00:00:00'), b = new Date(refDateStr+'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function shiftDateStr(dateStr, deltaDays){
+  const d = new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+deltaDays); return toDateStr(d);
+}
+function machineTail(n){ return ((n % 10) + 10) % 10; }
+function weekdayOf(dateStr){ return new Date(dateStr+'T00:00:00').getDay(); }
+
+/* 重み付き対数尤度から設定1〜6の事後確率を求める。
+   items: [{machineType, games, big, reg, w}] （w は各日の重み） */
+function estimateSettingWeighted(items){
+  const prior = priorFor(null);
+  const logL = {1:0,2:0,3:0,4:0,5:0,6:0};
+  for(let s=1;s<=6;s++) logL[s] = Math.log(prior[s] || 1e-12);
+  items.forEach(it => {
+    if(!(it.w > 0) || !(it.games > 0)) return;
+    const m = machineById(it.machineType);
+    const table = m ? m.table : DEFAULT_MACHINES[0].table;
+    for(let s=1;s<=6;s++){
+      const lamBig = it.games / table[s].big;
+      const lamReg = it.games / table[s].reg;
+      let term = logPoisson(it.big, lamBig) + logPoisson(it.reg, lamReg);
+      logL[s] += it.w * term;
+    }
+  });
+  const maxLog = Math.max(...Object.values(logL));
+  let sum = 0;
+  const probs = {};
+  for(let s=1;s<=6;s++){ probs[s] = Math.exp(logL[s]-maxLog); sum += probs[s]; }
+  for(let s=1;s<=6;s++){ probs[s] /= sum; }
+  let best=1, bestP=-1;
+  for(let s=1;s<=6;s++){ if(probs[s] > bestP){ bestP = probs[s]; best = s; } }
+  const expected = Object.entries(probs).reduce((a,[s,p]) => a + Number(s)*p, 0);
+  const sortedP = Object.values(probs).slice().sort((a,b)=>b-a);
+  const margin = sortedP[0] - sortedP[1];
+  let confidence = '低';
+  if(margin > 0.15) confidence = '高';
+  else if(margin > 0.07) confidence = '中';
+  return {best, bestP, probs, expected, confidence};
+}
+
+/* ============ 混合EM（台×日ごとに設定が違ってよいモデル） ============
+   グループ（例: 末尾3の日のデータ全部）の設定配分 π を推定する。
+   従来方式（estimateSettingWeighted）はグループ内の全データを「1つの設定」として尤度を合算するため、
+   データが増えるほど結果が1つの設定に張り付いてしまう（例: 50台日分なら、ほぼ「設定2が100%」になる）。
+   混合EMは「台×日ごとに設定1〜6のどれかが使われている」とみなして、その配分を推定する。
+   base（ホール全体などの配分）と alpha（その配分を何件分のデータとみなすか）を渡すと、
+   データの少ないグループほど base に寄る（少ないデータの上振れに引っ張られにくくなる）。 */
+var LIK_CACHE = new Map(); // recordKey -> 設定1〜6の尤度（最大値で割ったもの）。データ・機種が変わったら破棄
+function recordLik(r){
+  const key = recordKey(r);
+  let v = LIK_CACHE.get(key);
+  if(v) return v;
+  const m = machineById(r.machineType);
+  const table = m ? m.table : DEFAULT_MACHINES[0].table;
+  const ll = new Float64Array(6);
+  let mx = -Infinity;
+  for(let s=1;s<=6;s++){
+    ll[s-1] = logPoisson(r.big, r.games/table[s].big) + logPoisson(r.reg, r.games/table[s].reg);
+    if(ll[s-1] > mx) mx = ll[s-1];
+  }
+  for(let s=0;s<6;s++) ll[s] = Math.exp(ll[s] - mx);
+  LIK_CACHE.set(key, ll);
+  return ll;
+}
+const UNIFORM_PI = [1/6,1/6,1/6,1/6,1/6,1/6];
+function emFit(items, opt){
+  opt = opt || {};
+  const base = opt.base || UNIFORM_PI, alpha = opt.alpha || 0, minGames = opt.minGames || 0;
+  const maxIter = opt.maxIter || 300, tol = opt.tol || 1e-6;
+  const L = [], W = [];
+  let wsum = 0;
+  for(const it of items){
+    if(!(it.games > 0) || it.games < minGames) continue;
+    const w = it.w === undefined ? 1 : it.w;
+    if(!(w > 0)) continue;
+    L.push(recordLik(it)); W.push(w); wsum += w;
+  }
+  if(!L.length) return null;
+  let pi = Array.from(opt.init || base);
+  const acc = new Float64Array(6);
+  let iter = 0;
+  for(; iter < maxIter; iter++){
+    acc.fill(0);
+    for(let k=0;k<L.length;k++){
+      const l = L[k];
+      let den = 0;
+      for(let s=0;s<6;s++) den += pi[s]*l[s];
+      if(!(den > 0)) continue;
+      const f = W[k] / den;
+      for(let s=0;s<6;s++) acc[s] += f*pi[s]*l[s];
+    }
+    let change = 0;
+    const next = new Array(6);
+    for(let s=0;s<6;s++){
+      next[s] = (acc[s] + alpha*base[s]) / (wsum + alpha);
+      change = Math.max(change, Math.abs(next[s] - pi[s]));
+    }
+    pi = next;
+    if(change < tol) break;
+  }
+  return {pi, wsum, n: L.length, iter: iter+1};
+}
+function piToProbs(pi){ const p = {}; for(let s=1;s<=6;s++) p[s] = pi[s-1]; return p; }
+function flooredPi(pi){
+  const f = pi.map(v => Math.max(EM_FLOOR, v));
+  const sum = f.reduce((a,b) => a+b, 0);
+  return f.map(v => v/sum);
+}
+/* π（配分）から、期待設定・最有力設定・信頼度を、従来の推定結果と同じ形で返す */
+function summarizePi(pi){
+  const probs = piToProbs(pi);
+  let best = 1, bestP = -1;
+  for(let s=1;s<=6;s++){ if(probs[s] > bestP){ bestP = probs[s]; best = s; } }
+  const expected = pi.reduce((a,p,i) => a + (i+1)*p, 0);
+  const sortedP = pi.slice().sort((a,b)=>b-a);
+  const margin = sortedP[0] - sortedP[1];
+  return {best, bestP, probs, expected, confidence: margin > 0.15 ? '高' : (margin > 0.07 ? '中' : '低')};
+}
+
+/* トレンドの推定方法。'em'＝混合EM（v7の既定）、'pooled'＝従来の合算方式（v6以前と同じ）。 */
+function trendMethod(){ return (CONFIG && CONFIG.trendMethod === 'pooled') ? 'pooled' : 'em'; }
+/* EMの初期値。一般的なホールに近い配分から始めると収束が速い。結果を毎回同じにするため固定値にしている。 */
+const EM_INIT_PI = [0.5, 0.2, 0.1, 0.07, 0.07, 0.06];
+const TREND_EM_ALPHA = 20; // グループの配分を、ホール全体の配分「20件分（重み付き）」で補正する
+
+/* 1グループ（例：末尾3の日のデータ全部）を評価する。
+   サンプルが足りなければ期待値を出さず insufficient を立てる。
+   basePi は同じ期間・同じ範囲のデータ全体の配分（混合EMのときだけ使う）。 */
+function buildTrendGroup(items, basePi){
+  const n = items.length;
+  const days = new Set(items.map(i => i.date)).size;
+  const machines = new Set(items.map(i => i.machineType+'_'+i.machine)).size;
+  const games = items.reduce((a,i) => a + i.games, 0);
+  const wGames = items.reduce((a,i) => a + i.w * i.games, 0);
+  const base = {n, days, machines, games, wGames:Math.round(wGames)};
+  if(n < TREND_MIN_RECORDS || wGames < TREND_MIN_GAMES){
+    return {...base, expected:null, best:null, confidence:null, insufficient:true};
+  }
+  if(trendMethod() === 'em' && basePi){
+    const fit = emFit(items, {base: basePi, alpha: TREND_EM_ALPHA, init: basePi, tol: 1e-4, maxIter: 60});
+    if(fit){
+      const est = summarizePi(fit.pi);
+      return {...base, expected:est.expected, best:est.best, probs:est.probs,
+              confidence:est.confidence, insufficient:false, method:'em'};
+    }
+  }
+  const est = estimateSettingWeighted(items);
+  return {...base, expected:est.expected, best:est.best, probs:est.probs,
+          confidence:est.confidence, insufficient:false, method:'pooled'};
+}
+function trendValue(g){ return (g && !g.insufficient) ? g.expected : null; }
+function trendHigh4(g){ return (g && !g.insufficient) ? high4Of(g.probs) : null; }
+
+function groupTrend(items, keyFn, basePi){
+  const map = new Map();
+  items.forEach(it => {
+    const k = keyFn(it);
+    if(!map.has(k)) map.set(k, []);
+    map.get(k).push(it);
+  });
+  const out = new Map();
+  map.forEach((v,k) => out.set(k, buildTrendGroup(v, basePi)));
+  return out;
+}
+
+/* refDateStr を「基準日（この日を含む過去）」として、総合（90日＋時間減衰）のトレンドを計算する。
+   以前は直近7日・30日・90日の3期間も毎回計算していたが、画面・スコアのどこでも使っていなかったため
+   v7で計算をやめた（windows は互換のため空のオブジェクトを返す）。 */
+function computeTrendAnalysis(refDateStr, filterType){
+  // 索引（TYPE_SORTED_DATES / SORTED_DATES）を使って対象期間（refDateStr の90日前〜refDateStr）の行だけを取り出す。
+  const rangeStart = shiftDateStr(refDateStr, -90);
+  const scoped = rowsForTypeInRange(filterType, rangeStart, refDateStr)
+    .map(r => ({...r, ago: daysAgoOf(r.date, refDateStr)}))
+    .filter(r => r.ago >= 0 && r.ago <= 90);
+
+  const dims = items => {
+    // 混合EMのとき、グループを寄せる先（この範囲・期間のデータ全体の配分）を先に求める
+    // 初期値は固定（EM_INIT_PI）。前回の結果を初期値にすると計算の順番で結果が微妙に変わり、
+    // 同じ設定でも検証結果が一致しなくなるため。精度は0.01%単位で十分なので許容誤差は緩めにする。
+    const baseFit = trendMethod() === 'em' ? emFit(items, {tol: 1e-4, maxIter: 150, init: EM_INIT_PI}) : null;
+    const basePi = baseFit ? baseFit.pi : null;
+    return {
+      dateTail: groupTrend(items, r => dayTail(r.date), basePi),
+      numTail:  groupTrend(items, r => machineTail(r.machine), basePi),
+      combo:    groupTrend(items, r => dayTail(r.date)+'_'+machineTail(r.machine), basePi),
+      weekday:  groupTrend(items, r => weekdayOf(r.date), basePi),
+      basePi,
+      total:    items.length,
+      dates:    new Set(items.map(r => r.date)).size
+    };
+  };
+
+  // 総合：90日分すべてを、経過日数による時間減衰つきで評価
+  const compItems = scoped.map(r => ({...r, w: timeWeight(r.ago)})).filter(r => r.w > 0);
+  const composite = {
+    def: {key:'comp', label:'総合', days:90, note:'90日＋時間減衰'},
+    startStr: shiftDateStr(refDateStr, -89),
+    endStr: refDateStr,
+    ...dims(compItems)
+  };
+
+  return {refDateStr, filterType, windows: {}, composite, sourceCount: scoped.length};
+}
+
+/* ============ 事前確率の自動推定（EM・逐次） ============
+   事前確率の決め方を「自動」にすると、各台の設定推測に使う事前確率を、
+   「対象日の前日までの直近180日」のデータから機種ごとに推定した設定配分にする。
+   機種ごとの配分はホール全体の配分（AUTO_PRIOR_ALPHA 件分）で補正するので、データの少ない機種でも暴れにくい。
+   これにより、G数の少ない台の推定は自然にホールの平均的な配分へ寄る（少ないデータの上振れを抑える）。
+   対象日より後のデータは使わないので、期間検証・自動探索でも未来データは混ざらない。 */
+const AUTO_PRIOR_DAYS = 180;
+const AUTO_PRIOR_ALPHA = 100;
+var AUTO_PRIOR_CACHE = new Map(); // endStr -> {all, byType, n} | null
+function priorMode(){ return (CONFIG && CONFIG.priorMode === 'auto') ? 'auto' : 'manual'; }
+function autoPriorAt(endStr){
+  if(AUTO_PRIOR_CACHE.has(endStr)) return AUTO_PRIOR_CACHE.get(endStr);
+  const rows = rowsFromDateRange(SORTED_DATES, DATE_ROWS, shiftDateStr(endStr, -(AUTO_PRIOR_DAYS-1)), endStr);
+  const allFit = emFit(rows, {minGames: EM_MIN_GAMES, init: EM_INIT_PI, tol: 1e-5, maxIter: 300});
+  let result = null;
+  if(allFit && allFit.n >= 30){
+    const byTypeRows = new Map();
+    rows.forEach(r => { if(!byTypeRows.has(r.machineType)) byTypeRows.set(r.machineType, []); byTypeRows.get(r.machineType).push(r); });
+    const byType = new Map();
+    byTypeRows.forEach((list, type) => {
+      const fit = emFit(list, {minGames: EM_MIN_GAMES, base: allFit.pi, alpha: AUTO_PRIOR_ALPHA, init: allFit.pi, tol: 1e-5, maxIter: 200});
+      if(fit) byType.set(type, fit.pi);
+    });
+    result = {
+      all: piToProbs(flooredPi(allFit.pi)),
+      byType: new Map([...byType].map(([t,pi]) => [t, piToProbs(flooredPi(pi))])),
+      allRaw: allFit.pi, byTypeRaw: byType, n: allFit.n, endStr
+    };
+  }
+  AUTO_PRIOR_CACHE.set(endStr, result);
+  if(AUTO_PRIOR_CACHE.size > 500) AUTO_PRIOR_CACHE.delete(AUTO_PRIOR_CACHE.keys().next().value);
+  return result;
+}
+/* 推測中の対象日に対応する自動推定の結果。computeCandidateAnalysisUncached の間だけセットされる。
+   それ以外（当日実績の推定表示など）では、登録データの最終日時点の推定を使う。 */
+let PRIOR_CTX = null;
+function priorFor(machineType){
+  if(priorMode() === 'auto'){
+    const ctx = PRIOR_CTX || (SORTED_DATES.length ? autoPriorAt(SORTED_DATES[SORTED_DATES.length-1]) : null);
+    if(ctx) return (machineType && ctx.byType.get(machineType)) || ctx.all;
+  }
+  return currentPrior();
+}
+
+/* ============ 画面初期化・共通UI ============ */
+function refreshTags(){
+  document.getElementById('tagHall').textContent = CONFIG.hall;
+  document.getElementById('tagMachines').textContent = MACHINES.map(m=>m.name).join(' / ');
+  document.getElementById('tagCount').textContent = CONFIG.targets.length;
+  const sel = document.getElementById('fMachineType');
+  const cur = sel.value;
+  sel.innerHTML = MACHINES.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+  if(MACHINES.some(m=>m.id===cur)) sel.value = cur;
+  const fsel = document.getElementById('dataFilterType');
+  if(fsel){
+    const fcur = fsel.value;
+    fsel.innerHTML = '<option value="">全機種</option>' + MACHINES.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    if(MACHINES.some(m=>m.id===fcur)) fsel.value = fcur;
+  }
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function openSettings(){
+  document.getElementById('cfgHall').value = CONFIG.hall;
+  document.getElementById('cfgTargets').value = CONFIG.targets.join(',');
+  const p = currentPrior();
+  for(let s=1;s<=6;s++) document.getElementById('cfgPrior'+s).value = Math.round(p[s]*1000)/10;
+  fillScoreWeights(currentScoreWeights());
+  document.getElementById('cfgRankMetric').value = currentRankMetric();
+  document.getElementById('cfgExcludeWeekFromTail').checked = excludeWeekFromTail();
+  document.getElementById('cfgTailHalfLife').value = tailHalfLife();
+  document.getElementById('cfgPriorMode').value = priorMode();
+  document.getElementById('cfgTrendMethod').value = trendMethod();
+  document.getElementById('settingsModal').classList.add('open');
+}
+const SCORE_WEIGHT_INPUTS = {week:'cfgSwWeek', tail:'cfgSwTail', trend:'cfgSwTrend', weekday:'cfgSwWeekday'};
+function fillScoreWeights(w){
+  SCORE_WEIGHT_KEYS.forEach(k => document.getElementById(SCORE_WEIGHT_INPUTS[k]).value = w[k]);
+}
+/* 事前確率の入力欄を埋めるボタン。
+   「ホール既定値」は DEFAULT_PRIOR（設定1:65% / 2:15% / 3〜6:各5%）、「均等」は設定1〜6を各16.7%にする。 */
+function resetPriorToDefault(){
+  for(let s=1;s<=6;s++) document.getElementById('cfgPrior'+s).value = Math.round(DEFAULT_PRIOR[s]*1000)/10;
+}
+function setPriorUniform(){
+  for(let s=1;s<=6;s++) document.getElementById('cfgPrior'+s).value = 1;
+}
+
+/* ============ ホールの設定配分をデータから推定（EM法） ============
+   台×日の各データについて「設定sだったらこのBB・RB回数になる確からしさ」（ポアソン尤度）を機種スペックから求め、
+   「ホール全体の設定配分 π」を次の繰り返しで推定する：
+     ① いまの π で、各データが設定1〜6である確率（事後確率）を計算する
+     ② 全データの事後確率を平均したものを新しい π とする
+   変化が十分小さくなるまで繰り返す。1日分のデータは誤差が大きいので、G数が少ない日（EM_MIN_GAMES 未満）は使わない。
+   どの設定も0%にはしない（最低 EM_FLOOR）。0%にすると、その設定はどんなデータが来ても推定されなくなるため。 */
+const EM_MIN_GAMES = 3000;
+const EM_FLOOR = 0.005;
+function estimateHallPrior(periodDays){
+  if(!SORTED_DATES.length) return null;
+  const endStr = SORTED_DATES[SORTED_DATES.length-1];
+  const startStr = periodDays > 0 ? shiftDateStr(endStr, -(periodDays-1)) : SORTED_DATES[0];
+  const rows = rowsFromDateRange(SORTED_DATES, DATE_ROWS, startStr, endStr).filter(r => r.games >= EM_MIN_GAMES);
+  if(rows.length < 30) return {error:`G数${EM_MIN_GAMES.toLocaleString()}以上のデータが${rows.length}件しかないため推定できません（30件以上必要）。期間を広げてください。`};
+  // 各データの尤度（設定1〜6）。桁あふれを防ぐため、最大値で割ってから指数をとる
+  const L = rows.map(r => {
+    const m = machineById(r.machineType);
+    const table = m ? m.table : DEFAULT_MACHINES[0].table;
+    const ll = [];
+    for(let s=1;s<=6;s++) ll.push(logPoisson(r.big, r.games/table[s].big) + logPoisson(r.reg, r.games/table[s].reg));
+    const mx = Math.max(...ll);
+    return ll.map(v => Math.exp(v - mx));
+  });
+  let pi = [1/6,1/6,1/6,1/6,1/6,1/6];
+  let iter = 0;
+  for(; iter < 1000; iter++){
+    const acc = [0,0,0,0,0,0];
+    L.forEach(l => {
+      let den = 0;
+      for(let s=0;s<6;s++) den += pi[s]*l[s];
+      for(let s=0;s<6;s++) acc[s] += pi[s]*l[s]/den;
+    });
+    const next = acc.map(v => v / L.length);
+    const change = Math.max(...next.map((v,s) => Math.abs(v - pi[s])));
+    pi = next;
+    if(change < 1e-7) break;
+  }
+  const floored = pi.map(v => Math.max(EM_FLOOR, v));
+  const sum = floored.reduce((a,b) => a+b, 0);
+  return {pi: floored.map(v => v/sum), n: rows.length, startStr, endStr, iter: iter+1};
+}
+function runHallPriorEstimate(){
+  const el = document.getElementById('emResult');
+  const days = parseInt(document.getElementById('emPeriod').value) || 0;
+  const r = estimateHallPrior(days);
+  if(!r){ el.innerHTML = '<span style="color:var(--red);">データがありません。</span>'; return; }
+  if(r.error){ el.innerHTML = `<span style="color:var(--red);">${r.error}</span>`; return; }
+  for(let s=1;s<=6;s++) document.getElementById('cfgPrior'+s).value = Math.round(r.pi[s-1]*1000)/10;
+  const hi = r.pi[3] + r.pi[4] + r.pi[5];
+  el.innerHTML = `
+    <span style="color:var(--text);">推定結果: ${r.pi.map((v,i) => `設定${i+1} ${(v*100).toFixed(1)}%`).join(' / ')}</span><br>
+    設定4以上の合計: <b style="color:var(--text);">${(hi*100).toFixed(1)}%</b> ／ 使用データ ${r.startStr} 〜 ${r.endStr} の ${r.n.toLocaleString()}件（G数${EM_MIN_GAMES.toLocaleString()}以上）<br>
+    入力欄に反映しました。「保存」を押すと適用されます。設定2と3、設定5と6のようにスペック差が小さい設定どうしは、振り分けの誤差が大きくなります。
+    適用後は「期間まとめて成績検証」で、変更前と成績を比べてください。`;
+}
+function saveSettings(){
+  CONFIG.hall = document.getElementById('cfgHall').value.trim() || CONFIG.hall;
+  const t = document.getElementById('cfgTargets').value.split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x));
+  if(t.length) CONFIG.targets = t;
+  const rawPrior = {};
+  for(let s=1;s<=6;s++) rawPrior[s] = parseFloat(document.getElementById('cfgPrior'+s).value) || 0;
+  const anySet = Object.values(rawPrior).some(v => v > 0);
+  CONFIG.prior = anySet ? normalizePrior(rawPrior) : {...DEFAULT_PRIOR};
+  const rawSw = {};
+  SCORE_WEIGHT_KEYS.forEach(k => {
+    const v = document.getElementById(SCORE_WEIGHT_INPUTS[k]).value.trim();
+    rawSw[k] = v === '' ? DEFAULT_SCORE_WEIGHTS[k] : parseFloat(v);
+  });
+  const sw = normalizeScoreWeights(rawSw);
+  if(SCORE_WEIGHT_KEYS.every(k => sw[k] === 0)){ alert('配合比は少なくとも1つを0より大きくしてください。'); return; }
+  CONFIG.scoreWeights = sw;
+  CONFIG.rankMetric = document.getElementById('cfgRankMetric').value === 'high4' ? 'high4' : 'expected';
+  CONFIG.excludeWeekFromTail = document.getElementById('cfgExcludeWeekFromTail').checked;
+  const hl = parseFloat(document.getElementById('cfgTailHalfLife').value);
+  CONFIG.tailHalfLife = (isFinite(hl) && hl >= 0) ? hl : DEFAULT_TAIL_HALF_LIFE;
+  CONFIG.priorMode = document.getElementById('cfgPriorMode').value === 'auto' ? 'auto' : 'manual';
+  CONFIG.trendMethod = document.getElementById('cfgTrendMethod').value === 'pooled' ? 'pooled' : 'em';
+  saveConfig();
+  refreshTags();
+  closeModal('settingsModal');
+  renderDataTable();
+  renderMain();
+}
+
+/* ---- 機種管理モーダル ---- */
+let machineDraft = [];
+function openMachines(){
+  machineDraft = JSON.parse(JSON.stringify(MACHINES));
+  renderMachineDraft();
+  document.getElementById('machinesModal').classList.add('open');
+}
+function renderMachineDraft(){
+  const el = document.getElementById('machineList');
+  el.innerHTML = machineDraft.map((m, idx) => `
+    <div class="machine-block">
+      <div class="mtop">
+        <div class="field"><label>機種名</label><input type="text" value="${esc(m.name)}" onchange="machineDraft[${idx}].name=this.value"></div>
+        <div class="field"><label>シート名 / 別名（カンマ区切り）</label><input type="text" value="${esc(m.aliases.join(','))}" onchange="machineDraft[${idx}].aliases=this.value.split(',').map(s=>s.trim()).filter(Boolean)"></div>
+        <button class="btn danger small" style="margin-top:20px;" onclick="removeMachineDraft(${idx})">削除</button>
+      </div>
+      <div class="spec-grid head"><span>設定</span><span>BIG確率(分母)</span><span>REG確率(分母)</span><span>参考機械割(%)</span></div>
+      ${[1,2,3,4,5,6].map(s => `
+        <div class="spec-grid">
+          <span>設定${s}</span>
+          <input type="number" step="0.1" value="${m.table[s].big}" onchange="machineDraft[${idx}].table[${s}].big=parseFloat(this.value)||1">
+          <input type="number" step="0.1" value="${m.table[s].reg}" onchange="machineDraft[${idx}].table[${s}].reg=parseFloat(this.value)||1">
+          <input type="number" step="0.1" value="${m.table[s].payout ?? ''}" onchange="machineDraft[${idx}].table[${s}].payout=parseFloat(this.value)||null">
+        </div>`).join('')}
+    </div>`).join('');
+}
+function addMachineDraft(){
+  machineDraft.push({
+    id: 'machine_' + Date.now(),
+    name: '新しい機種',
+    aliases: [],
+    table: {1:{big:270,reg:400,payout:97},2:{big:265,reg:370,payout:98.5},3:{big:260,reg:340,payout:99.9},
+             4:{big:250,reg:300,payout:102},5:{big:240,reg:270,payout:104.5},6:{big:230,reg:230,payout:108}}
+  });
+  renderMachineDraft();
+}
+function removeMachineDraft(idx){
+  if(machineDraft.length <= 1){ alert('機種は最低1つ必要です。'); return; }
+  machineDraft.splice(idx,1);
+  renderMachineDraft();
+}
+function saveMachines(){
+  MACHINES = machineDraft;
+  saveMachinesToStorage();
+  refreshTags();
+  closeModal('machinesModal');
+  renderMain();
+}
+
+/* 登録済みデータ一覧。全件を毎回描画すると件数が増えたときに重くなるため、
+   索引（SORTED_DATES / DATE_ROWS）を新しい日付から順にたどり、表示件数ぶんだけ描画する。
+   機種・日付で絞り込みでき、「さらに表示」で表示件数を増やせる。 */
+const DATA_LIST_PAGE = 100;
+let dataListLimit = DATA_LIST_PAGE;
+function onDataFilterChange(){ dataListLimit = DATA_LIST_PAGE; renderDataTable(); }
+function showMoreDataRows(){ dataListLimit += DATA_LIST_PAGE; renderDataTable(); }
+function renderDataList(){
+  renderDataTable();
+  renderMain();
+}
+function renderDataTable(){
+  document.getElementById('dataCount').textContent = `(${DATA.length}件)`;
+  renderStorageUsage();
+  const body = document.getElementById('dataListBody');
+  const fType = (document.getElementById('dataFilterType') || {}).value || '';
+  const fDate = (document.getElementById('dataFilterDate') || {}).value || '';
+  const dates = fDate ? (DATE_ROWS.has(fDate) ? [fDate] : []) : SORTED_DATES;
+  const rows = [];
+  let matched = 0;
+  for(let i=dates.length-1; i>=0; i--){
+    const dayRows = DATE_ROWS.get(dates[i]) || [];
+    const hit = fType ? dayRows.filter(r => r.machineType === fType) : dayRows;
+    if(!hit.length) continue;
+    matched += hit.length;
+    if(rows.length < dataListLimit){
+      hit.slice().sort((a,b) => a.machine - b.machine).forEach(r => { if(rows.length < dataListLimit) rows.push(r); });
+    }
+  }
+  const moreEl = document.getElementById('dataListMore');
+  if(moreEl){
+    moreEl.innerHTML = matched > rows.length
+      ? `<span>${matched}件中 ${rows.length}件を表示</span><button class="btn secondary small" onclick="showMoreDataRows()">さらに${Math.min(DATA_LIST_PAGE, matched-rows.length)}件表示</button>`
+      : (matched ? `<span>${matched}件を表示</span>` : '');
+  }
+  if(!rows.length){
+    body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-faint);">${DATA.length ? '条件に合うデータがありません' : 'データがありません'}</td></tr>`;
+  } else {
+    body.innerHTML = rows.map(r => `
+      <tr>
+        <td>${r.date}</td>
+        <td style="font-size:11px;">${esc(machineName(r.machineType))}</td>
+        <td>${r.machine}</td>
+        <td class="${r.diff>=0?'pos':'neg'}">${r.diff>=0?'+':''}${r.diff}</td>
+        <td>${r.games}</td>
+        <td>${r.big}</td>
+        <td>${r.reg}</td>
+        <td><button class="del-btn" onclick="deleteRow('${recordKey(r)}')" title="削除">✕</button></td>
+      </tr>`).join('');
+  }
+}
+
+function deleteRow(key){
+  DATA = DATA.filter(r => recordKey(r) !== key);
+  saveData();
+  renderDataList();
+}
+
+function confirmClearAll(){
+  if(confirm('登録済みの全データを削除します。よろしいですか？')){
+    DATA = [];
+    saveData();
+    renderDataList();
+  }
+}
+
+/* ============ 手動登録 ============ */
+function addManualRow(){
+  const machineType = document.getElementById('fMachineType').value;
+  const date = document.getElementById('fDate').value;
+  const machine = parseInt(document.getElementById('fMachine').value);
+  const diff = parseInt(document.getElementById('fDiff').value);
+  const games = parseInt(document.getElementById('fGames').value);
+  const big = parseInt(document.getElementById('fBig').value);
+  const reg = parseInt(document.getElementById('fReg').value);
+
+  if(!machineType || !date || isNaN(machine) || isNaN(diff) || isNaN(games) || isNaN(big) || isNaN(reg)){
+    alert('すべての項目を正しく入力してください。');
+    return;
+  }
+  if(games < 0 || big < 0 || reg < 0){
+    alert('G数・BB・RBは0以上の値にしてください。');
+    return;
+  }
+  const rec = {date, machineType, machine, diff, games, big, reg};
+  upsertRecord(rec);
+  renderDataList();
+  ['fMachine','fDiff','fGames','fBig','fReg'].forEach(id => document.getElementById(id).value = '');
+}
+
+function upsertRecord(rec){
+  const key = recordKey(rec);
+  const idx = DATA.findIndex(r => recordKey(r) === key);
+  if(idx >= 0) DATA[idx] = rec; else DATA.push(rec);
+  saveData();
+}
+
+/* インポートなど大量件数をまとめて登録するための高速版。
+   1件ずつ全件スキャン＋保存していた従来方式だと件数が増えるほど
+   指数的に重くなり「ページが応答しません」の原因になっていたため、
+   Mapで既存位置を先に索引化し、保存もループの外で1回だけ行う。 */
+function upsertRecordsBatch(records){
+  const indexMap = new Map();
+  DATA.forEach((r, i) => indexMap.set(recordKey(r), i));
+  records.forEach(rec => {
+    const key = recordKey(rec);
+    if(indexMap.has(key)){
+      DATA[indexMap.get(key)] = rec;
+    } else {
+      indexMap.set(key, DATA.length);
+      DATA.push(rec);
+    }
+  });
+  saveData();
+}
+
+/* ============ Excel / CSV インポート（シート = 機種） ============ */
+const fileInput = document.getElementById('fileInput');
+const dropzone = document.getElementById('dropzone');
+fileInput.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function excelDateToStr(v){
+  if(typeof v === 'number'){
+    const d = XLSX.SSF.parse_date_code(v);
+    if(!d) return null;
+    return `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+  }
+  if(typeof v === 'string'){
+    const m = v.trim().match(/^(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
+    if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  }
+  return null;
+}
+
+/* Excel/CSV 取り込みと「サンプルExcel」作成のときだけ SheetJS(xlsx.full.min.js, 約900KB) を
+   CDN から読み込む。起動時には読み込まないので、携帯での初回表示が軽くなる。
+   一度読み込めば以降は再利用される。失敗時は次回また試せるように状態を戻す。 */
+const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let xlsxPromise = null;
+function loadXlsx(){
+  if(window.XLSX) return Promise.resolve(window.XLSX);
+  if(xlsxPromise) return xlsxPromise;
+  xlsxPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = XLSX_SRC;
+    s.onload = () => {
+      if(window.XLSX){ resolve(window.XLSX); }
+      else { xlsxPromise = null; reject(new Error('Excel読み込みライブラリの初期化に失敗しました。')); }
+    };
+    s.onerror = () => {
+      xlsxPromise = null;
+      reject(new Error('Excel読み込みライブラリを取得できませんでした。ネット接続を確認して、もう一度お試しください。'));
+    };
+    document.head.appendChild(s);
+  });
+  return xlsxPromise;
+}
+
+function handleFile(file){
+  logImport(['Excel/CSV読み込みライブラリを準備しています…']);
+  loadXlsx().then(() => {
+    const reader = new FileReader();
+    reader.onload = evt => {
+      try{
+        const wb = XLSX.read(evt.target.result, {type:'binary', cellDates:false});
+        processWorkbook(wb);
+      }catch(err){
+        logImport([`<span class="err">読み込みに失敗しました: ${err.message}</span>`]);
+      }
+    };
+    reader.readAsBinaryString(file);
+  }).catch(err => {
+    logImport([`<span class="err">${err.message}</span>`]);
+  });
+}
+
+function findCol(row, candidates){
+  const keys = Object.keys(row);
+  for(const c of candidates){
+    const k = keys.find(k => k.replace(/\s/g,'') === c);
+    if(k) return k;
+  }
+  return null;
+}
+
+function processWorkbook(wb){
+  const log = [];
+  log.push(`Excel読み込み開始（シート数: ${wb.SheetNames.length}）`);
+  log.push(`対象ホール: ${CONFIG.hallId}`);
+  log.push('');
+
+  let totalOk=0, totalError=0, totalDup=0;
+  const allBatch = [];
+  const seen = new Set(DATA.map(recordKey));
+  const newlyAddedTargets = new Set();
+
+  wb.SheetNames.forEach(sheetName => {
+    let machine = matchMachineBySheet(sheetName);
+    if(!machine && (normalizeName(sheetName) === 'dailydata' || normalizeName(sheetName) === 'sheet1')){
+      machine = MACHINES[0];
+      log.push(`<span class="warn">[${esc(sheetName)}] 機種未指定のため既定機種「${esc(machine.name)}」として扱います</span>`);
+    }
+    if(!machine){
+      log.push(`<span class="err">[${esc(sheetName)}] 一致する機種が見つからないためスキップしました（機種管理でシート名を登録してください）</span>`);
+      return;
+    }
+    log.push(`--- シート「${esc(sheetName)}」→ 機種: ${esc(machine.name)} ---`);
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], {defval:''});
+    let ok=0, error=0, dup=0;
+    const perDate = {};
+
+    rows.forEach((row, i) => {
+      const colDate = findCol(row, ['日付']);
+      const colMachine = findCol(row, ['台番','台番号']);
+      const colDiff = findCol(row, ['差枚']);
+      const colGames = findCol(row, ['G数','ゲーム数']);
+      const colBig = findCol(row, ['BB']);
+      const colReg = findCol(row, ['RB']);
+
+      const rawMachine = colMachine ? String(row[colMachine]).trim() : '';
+      if(rawMachine === '平均' || rawMachine === '') return;
+
+      const date = colDate ? excelDateToStr(row[colDate]) : null;
+      const machineNum = parseInt(rawMachine);
+      const diff = colDiff!==null ? parseInt(row[colDiff]) : NaN;
+      const games = colGames!==null ? parseInt(row[colGames]) : NaN;
+      const big = colBig!==null ? parseInt(row[colBig]) : NaN;
+      const reg = colReg!==null ? parseInt(row[colReg]) : NaN;
+
+      if(!date){ log.push(`<span class="err">エラー(行${i+2}): 日付が不正です</span>`); error++; return; }
+      if(isNaN(machineNum)){
+        log.push(`<span class="err">エラー(行${i+2}): 台番号 ${rawMachine} が数値として認識できません</span>`); error++; return;
+      }
+      if(!CONFIG.targets.includes(machineNum)){
+        CONFIG.targets.push(machineNum);
+        newlyAddedTargets.add(machineNum);
+        log.push(`<span class="warn">新規台番号(行${i+2}): 台${machineNum} をホール設定の対象台に自動追加しました</span>`);
+      }
+      if(isNaN(games) || games<0){ log.push(`<span class="err">エラー(行${i+2}): G数が不正です</span>`); error++; return; }
+      if(isNaN(big) || big<0){ log.push(`<span class="err">エラー(行${i+2}): BBが不正です</span>`); error++; return; }
+      if(isNaN(reg) || reg<0){ log.push(`<span class="err">エラー(行${i+2}): RBが不正です</span>`); error++; return; }
+      if(isNaN(diff)){ log.push(`<span class="err">エラー(行${i+2}): 差枚が不正です</span>`); error++; return; }
+
+      const key = date+'_'+machine.id+'_'+machineNum;
+      if(seen.has(key)){
+        log.push(`<span class="warn">重複(行${i+2}): ${date} 台${machineNum} は既存データを更新します</span>`);
+        dup++;
+      }
+      seen.add(key);
+      perDate[date] = (perDate[date]||0) + 1;
+      const rec = {date, machineType: machine.id, machine: machineNum, diff, games, big, reg};
+      allBatch.push(rec);
+      ok++;
+    });
+
+    Object.keys(perDate).sort().reverse().forEach(d => log.push(`　${d} : ${perDate[d]}台`));
+    log.push(`　正常:${ok} / エラー:${error} / 重複:${dup}`);
+    log.push('');
+    totalOk+=ok; totalError+=error; totalDup+=dup;
+  });
+
+  if(newlyAddedTargets.size > 0){
+    CONFIG.targets = [...new Set(CONFIG.targets)].sort((a,b)=>a-b);
+    saveConfig();
+    refreshTags();
+    log.push(`<span class="ok">ホール設定の対象台に ${newlyAddedTargets.size} 件の新規台番号を自動追加しました: ${[...newlyAddedTargets].sort((a,b)=>a-b).join(', ')}</span>`);
+    log.push('');
+  }
+
+  log.push('====================');
+  log.push(`<span class="ok">合計 正常: ${totalOk}</span>`);
+  log.push(totalError>0 ? `<span class="err">合計 エラー: ${totalError}</span>` : `合計 エラー: ${totalError}`);
+  log.push(totalDup>0 ? `<span class="warn">合計 重複(更新): ${totalDup}</span>` : `合計 重複: ${totalDup}`);
+  log.push('====================');
+  log.push(`INSERT対象: ${totalOk}件`);
+
+  logImport(log);
+
+  if(totalOk>0){
+    upsertRecordsBatch(allBatch);
+    renderDataList();
+  }
+}
+
+function logImport(lines){
+  document.getElementById('importLog').innerHTML = lines.join('\n');
+}
+
+function downloadSampleXlsx(){
+  loadXlsx().then(buildSampleXlsx).catch(err => alert(err.message));
+}
+function buildSampleXlsx(){
+  const sheet1 = [
+    ['日付','台番','差枚','G数','出率','BB','RB','合成','BB率','RB率'],
+    ['2026/09/11',354,3395,7585,'114.90%',40,25,'1/117','1/190','1/303'],
+    ['2026/09/11',355,-2373,6132,'87.10%',15,15,'1/204','1/409','1/409'],
+    ['2026/09/11',356,-1000,8606,'96.10%',26,29,'1/156','1/331','1/297'],
+    ['2026/09/10',354,-361,6049,'98.00%',22,19,'1/148','1/275','1/318'],
+    ['2026/09/10',355,93,6622,'100.50%',26,22,'1/138','1/255','1/301'],
+  ];
+  const sheet2 = [
+    ['日付','台番','差枚','G数','出率','BB','RB','合成','BB率','RB率'],
+    ['2026/09/11',357,4210,7920,'118.40%',44,29,'1/108','1/180','1/273'],
+    ['2026/09/11',358,-1580,7100,'92.60%',20,17,'1/192','1/355','1/418'],
+    ['2026/09/10',357,880,6890,'104.30%',27,21,'1/144','1/255','1/328'],
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet1), 'ミスタージャグラー');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheet2), 'マイジャグ');
+  const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+  saveBlob(new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), 'daily_data_sample.xlsx');
+}
+
+function exportCsv(){
+  if(!DATA.length){ alert('出力するデータがありません。'); return; }
+  const header = '日付,機種,台番,差枚,G数,BB,RB\n';
+  const body = DATA.slice().sort((a,b)=> a.date===b.date? a.machine-b.machine : (a.date<b.date?1:-1))
+    .map(r => `${r.date},${machineName(r.machineType)},${r.machine},${r.diff},${r.games},${r.big},${r.reg}`).join('\n');
+  saveBlob(new Blob([header+body], {type:'text/csv'}), 'juggler_data_backup.csv');
+}
+
+/* ============ JSON完全バックアップ（データ＋機種＋ホール設定） ============
+   PC買い替え・別ブラウザへの移行用。CSVは実戦データのみだが、こちらは
+   機種のBIG/REG確率テーブルやホール設定（事前確率含む）もまるごと復元できる。 */
+const JSON_BACKUP_VERSION = 1;
+function exportJsonBackup(){
+  const payload = {
+    _type: 'juggler_app_backup',
+    _version: JSON_BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    config: CONFIG,
+    machines: MACHINES,
+    data: DATA
+  };
+  const d = new Date();
+  downloadJson(payload, `juggler_backup_${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`);
+}
+function downloadJson(payload, filename){
+  saveBlob(new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'}), filename);
+}
+
+/* ファイル保存の共通処理。
+   ブラウザ：通常のダウンロード。
+   Androidアプリ版（Capacitor）：WebViewはダウンロードできないため、アプリ内に一時保存して
+   共有メニューを開く（Googleドライブ・ファイルアプリ・LINEなどに保存できる）。 */
+function saveBlob(blob, filename){
+  const cap = window.Capacitor;
+  const P = cap && cap.Plugins;
+  if(cap && cap.isNativePlatform && cap.isNativePlatform() && P && P.Filesystem && P.Share){
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try{
+        const data = String(reader.result).split(',')[1];
+        const res = await P.Filesystem.writeFile({path: filename, data, directory: 'CACHE'});
+        await P.Share.share({title: filename, files: [res.uri]});
+      }catch(e){
+        if(!/cancel/i.test(String(e && e.message))) alert('ファイルの保存に失敗しました: ' + (e && e.message || e));
+      }
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+function importJsonBackupFile(file){
+  const reader = new FileReader();
+  reader.onload = evt => {
+    let obj;
+    try{ obj = JSON.parse(evt.target.result); }
+    catch(e){ alert('JSONの読み込みに失敗しました（ファイルが壊れているか、形式が違います）。'); return; }
+    if(!obj || obj._type !== 'juggler_app_backup' || !Array.isArray(obj.data)){
+      alert('このアプリのバックアップJSONではないようです。'); return;
+    }
+    const replaceAll = confirm(
+      `バックアップ内容: データ${obj.data.length}件 / 機種${(obj.machines||[]).length}件\n\n`+
+      (obj._archive ? `※これは ${obj._archive.before} より前のデータのアーカイブです。今のデータに戻すときは「キャンセル（マージ）」を選んでください。\n\n` : '')+
+      `「OK」→ 機種・ホール設定・データを全て今の内容と置き換えます（現在のデータは失われます）\n`+
+      `「キャンセル」→ データのみ、既存データに追加・更新でマージします（機種・ホール設定は変更しません）`
+    );
+    if(replaceAll){
+      if(obj.machines && obj.machines.length) MACHINES = obj.machines;
+      if(obj.config) CONFIG = { ...CONFIG, ...obj.config, prior: obj.config.prior || {...DEFAULT_PRIOR} };
+      DATA = obj.data;
+      saveMachinesToStorage(); saveConfig(); saveData();
+    } else {
+      upsertRecordsBatch(obj.data);
+    }
+    refreshTags(); renderDataList(); renderMain();
+    alert('JSONバックアップの復元が完了しました。');
+  };
+  reader.readAsText(file);
+}
+
+function minGamesThreshold(){
+  const el = document.getElementById('minGamesFilter');
+  const v = el ? parseInt(el.value) : NaN;
+  return (!isNaN(v) && v > 0) ? v : 0;
+}
+
+function renderMain(){
+  renderVerifyTab();
+}
+
+/* ============ 翌日候補・日付指定検証 共通ロジック ============ */
+function toDateStr(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+/* 「差枚数が低い候補」の集計期間バリエーション。
+   従来は直近1週間（7日）固定だったが、2週間・3週間・4週間の据え置き傾向も
+   横並びで確認できるようにするための定義。w1 が従来の挙動と完全に一致する。 */
+const LOWDIFF_WINDOWS = [
+  {key:'w1', weeks:1, days:7,  label:'直近1週間'},
+  {key:'w2', weeks:2, days:14, label:'直近2週間'},
+  {key:'w3', weeks:3, days:21, label:'直近3週間'},
+  {key:'w4', weeks:4, days:28, label:'直近4週間'}
+];
+let selectedLowDiffWindow = 'w1'; // 翌日候補・日付指定検証タブでどの期間を表示するか
+function setLowDiffWindow(key){ selectedLowDiffWindow = key; renderMain(); }
+function lowDiffWindowByKey(key){ return LOWDIFF_WINDOWS.find(w => w.key === key) || LOWDIFF_WINDOWS[0]; }
+
+/* 対象日の「前日まで」を終端とする windowDays 日間で、台×機種を合算し、
+   差枚合計が低い順に並べる。既存の「直近7日間」ロジック（weekAgg / lowDiffCandidates）を
+   日数だけパラメータ化したもので、7日を渡せば従来と完全に同じ結果になる。 */
+function computeLowDiffWindow(targetDateStr, windowDays){
+  const targetDateObj = new Date(targetDateStr+'T00:00:00');
+  const minGames = minGamesThreshold();
+  const end = new Date(targetDateObj); end.setDate(end.getDate()-1);
+  const start = new Date(end); start.setDate(start.getDate()-(windowDays-1));
+  const startStr = toDateStr(start), endStr = toDateStr(end);
+  const rows = rowsFromDateRange(SORTED_DATES, DATE_ROWS, startStr, endStr);
+  const agg = analyzedAgg(aggregateRows(rows)).filter(g => g.games >= minGames).sort((a,b) => b.est.expected - a.est.expected);
+  const lowCandidates = agg.slice().sort((a,b) => a.diff - b.diff).slice(0,3);
+  return {windowDays, startStr, endStr, agg, lowCandidates};
+}
+
+/* 候補選定の計算結果キャッシュ。
+   computeCandidateAnalysis は重い（機種ごとの末尾トレンド＋1〜4週間の差枚集計）ため、
+   「対象日＋最低G数」が同じ間は結果を使い回す。直近1〜4週間ボタンの切り替えや
+   AI相談用テキストの作成でも再計算されない。
+   データ・機種・ホール設定（事前確率）が保存されたら invalidateAnalysisCache() で破棄する。
+   起動直前の呼び出しでも壊れないよう var で宣言している。 */
+var ANALYSIS_CACHE = new Map();
+function invalidateAnalysisCache(){
+  if(ANALYSIS_CACHE) ANALYSIS_CACHE.clear();
+  // 尤度・自動推定の事前確率もデータや機種スペックに依存するので一緒に破棄する（var 宣言なので起動直後でも安全）
+  if(LIK_CACHE) LIK_CACHE.clear();
+  if(AUTO_PRIOR_CACHE) AUTO_PRIOR_CACHE.clear();
+}
+function computeCandidateAnalysis(targetDateStr){
+  const key = targetDateStr + '|' + minGamesThreshold();
+  if(ANALYSIS_CACHE.has(key)){
+    const v = ANALYSIS_CACHE.get(key);
+    ANALYSIS_CACHE.delete(key); ANALYSIS_CACHE.set(key, v); // 最近使った順に並べ替える
+    return v;
+  }
+  const result = computeCandidateAnalysisUncached(targetDateStr);
+  ANALYSIS_CACHE.set(key, result);
+  if(ANALYSIS_CACHE.size > 12) ANALYSIS_CACHE.delete(ANALYSIS_CACHE.keys().next().value);
+  return result;
+}
+
+/* opts.scoreWeights: 配合比を一時的に差し替える（自動探索の前計算用）。opts.skipLowDiff: 2〜4週間の差枚集計を省く。
+   どちらも省略時は従来どおり。
+   事前確率が「自動」のときは、計算の間だけ「対象日の前日まで」のデータで推定した事前確率を使う（未来データ非参照）。 */
+function computeCandidateAnalysisUncached(targetDateStr, opts){
+  const prev = PRIOR_CTX;
+  const ctx = priorMode() === 'auto' ? autoPriorAt(shiftDateStr(targetDateStr, -1)) : null;
+  PRIOR_CTX = ctx;
+  try{
+    const result = computeCandidateAnalysisCore(targetDateStr, opts);
+    result.priorCtx = ctx;
+    result.priorModeUsed = ctx ? 'auto' : 'manual';
+    return result;
+  } finally {
+    PRIOR_CTX = prev;
+  }
+}
+function computeCandidateAnalysisCore(targetDateStr, opts){
+  const targetDateObj = new Date(targetDateStr+'T00:00:00');
+  const targetTail = targetDateObj.getDate() % 10;
+  const targetLabel = `${targetDateObj.getFullYear()}/${targetDateObj.getMonth()+1}/${targetDateObj.getDate()}(${WD[targetDateObj.getDay()]})`;
+  const minGames = minGamesThreshold();
+
+  // 対象日の「前日まで」の直近7日間を週間ウィンドウとする（未来のデータを見ないようにするため）
+  const weekEnd = new Date(targetDateObj); weekEnd.setDate(weekEnd.getDate()-1);
+  const weekStart = new Date(weekEnd); weekStart.setDate(weekStart.getDate()-6);
+  const startStr = toDateStr(weekStart), endStr = toDateStr(weekEnd);
+
+  // 索引（SORTED_DATES / DATE_ROWS 等）を使って対象期間だけを二分探索で取り出す。
+  // 結果は従来の DATA.filter(...) と完全に同一。
+  const weekRows = rowsFromDateRange(SORTED_DATES, DATE_ROWS, startStr, endStr);
+  const weekAgg = analyzedAgg(aggregateRows(weekRows)).filter(g => g.games >= minGames).sort((a,b) => b.est.expected - a.est.expected);
+  const weekMap = new Map(weekAgg.map(g => [g.machineType+'_'+g.machine, g]));
+
+  // 対象日より前の、同じ日付末尾の実績のみを使用する（対象日以降のデータは候補選定に一切使わない＝未来データ非参照を保証）
+  // 週間ウィンドウと重なる日は、設定に応じて末尾実績から除く（同じデータが二重に効かないようにする）
+  const tailRowsAll = rowsForTailBefore(targetTail, targetDateStr);
+  const tailRows = excludeWeekFromTail() ? tailRowsAll.filter(r => r.date < startStr) : tailRowsAll;
+  const tailOverlapExcluded = tailRowsAll.length - tailRows.length;
+  const tailAgg = analyzedAggTailDecay(aggregateRows(tailRows), targetDateStr).filter(g => g.games >= minGames).sort((a,b) => b.est.expected - a.est.expected);
+  const tailMap = new Map(tailAgg.map(g => [g.machineType+'_'+g.machine, g]));
+
+  const actualRows = rowsForDateExact(targetDateStr);
+  const actualMap = new Map(actualRows.map(r => [r.machineType+'_'+r.machine, r]));
+
+  /* --- 末尾トレンド（3期間＋時間減衰の総合）を基準日=対象日の前日で算出 --- */
+  const trendAll = computeTrendAnalysis(endStr, null);
+  const trendCache = new Map();
+  const trendFor = typeId => {
+    if(!trendCache.has(typeId)) trendCache.set(typeId, computeTrendAnalysis(endStr, typeId));
+    return trendCache.get(typeId);
+  };
+  const targetWd = targetDateObj.getDay();
+  /* 機種別トレンドを優先し、データ不足なら全機種横断のトレンドで補う */
+  const pick = (typeId, dim, key) => {
+    const g = trendFor(typeId).composite[dim].get(key);
+    const v = trendValue(g);
+    if(v !== null) return {value:v, high4:trendHigh4(g), scope:'機種別'};
+    const g2 = trendAll.composite[dim].get(key);
+    const v2 = trendValue(g2);
+    if(v2 !== null) return {value:v2, high4:trendHigh4(g2), scope:'全機種'};
+    return {value:null, high4:null, scope:null};
+  };
+  const SW = (opts && opts.scoreWeights) || currentScoreWeights();
+  const metric = currentRankMetric();
+
+  const comboKeys = new Set([...weekMap.keys(), ...tailMap.keys()]);
+  const scored = [...comboKeys].map(key => {
+    const w = weekMap.get(key), t = tailMap.get(key);
+    const base = w || t;
+    const weekExp = w ? w.est.expected : null;
+    const tailExp = t ? t.est.expected : null;
+    const weekH4 = w ? high4Of(w.est.probs) : null;
+    const tailH4 = t ? high4Of(t.est.probs) : null;
+
+    const mTail = machineTail(base.machine);
+    const dTrend  = pick(base.machineType, 'dateTail', targetTail);
+    const nTrend  = pick(base.machineType, 'numTail',  mTail);
+    const cTrend  = pick(base.machineType, 'combo',    targetTail+'_'+mTail);
+    const wdTrend = pick(base.machineType, 'weekday',  targetWd);
+
+    /* 総合末尾トレンド値：日付末尾×台番号末尾が使えればそれを最優先、
+       使えなければ日付末尾・台番号末尾の平均で代替する */
+    let trendExp = null, trendH4 = null, trendSrc = null;
+    if(cTrend.value !== null){
+      trendExp = cTrend.value; trendH4 = cTrend.high4; trendSrc = `日付末尾${targetTail}×台番号末尾${mTail}（${cTrend.scope}）`;
+    } else {
+      const parts = [dTrend, nTrend].filter(p => p.value !== null);
+      if(parts.length){
+        trendExp = parts.reduce((a,p) => a + p.value, 0) / parts.length;
+        trendH4 = parts.reduce((a,p) => a + p.high4, 0) / parts.length;
+        trendSrc = parts.length === 2
+          ? `日付末尾${targetTail}・台番号末尾${mTail}の平均`
+          : (dTrend.value !== null ? `日付末尾${targetTail}のみ` : `台番号末尾${mTail}のみ`);
+      }
+    }
+    const wdExp = wdTrend.value;
+    const wdH4 = wdTrend.high4;
+
+    /* --- スコア：使える要素だけを重み付き平均する（重みが0の要素は使わない）。
+       期待設定（e）と設定4以上の確率（h）の両方を同じ重みで算出し、順位は選択中の指標で決める。 --- */
+    const comps = [];
+    if(weekExp !== null) comps.push({e:weekExp, h:weekH4, w:SW.week,  name:'週間'});
+    if(tailExp !== null) comps.push({e:tailExp, h:tailH4, w:SW.tail,  name:'末尾実績'});
+    if(USE_TREND_IN_SCORE && trendExp !== null) comps.push({e:trendExp, h:trendH4, w:SW.trend,   name:'総合末尾トレンド'});
+    if(USE_TREND_IN_SCORE && wdExp   !== null) comps.push({e:wdExp,   h:wdH4,   w:SW.weekday, name:'曜日'});
+    const used = comps.filter(c => c.w > 0);
+
+    const wSum = used.reduce((a,c) => a + c.w, 0);
+    const scoreExp = wSum > 0 ? used.reduce((a,c) => a + c.e*c.w, 0) / wSum : null;
+    const scoreH4  = wSum > 0 ? used.reduce((a,c) => a + c.h*c.w, 0) / wSum : null;
+    const score = metric === 'high4' ? scoreH4 : scoreExp;
+    const basis = used.length ? used.map(c => c.name).join('+') + 'の重み付き平均' : 'データ不足';
+
+    return {
+      key, machineType: base.machineType, machine: base.machine, machineTailNum: mTail,
+      score, scoreExp, scoreH4, basis,
+      weekExp, tailExp, weekH4, tailH4, weekDays: w ? w.days : 0, tailDays: t ? t.days : 0,
+      trendExp, trendH4, trendSrc, wdExp, wdH4, wdScope: wdTrend.scope,
+      dateTailExp: dTrend.value, numTailExp: nTrend.value, comboExp: cTrend.value
+    };
+  }).filter(s => s.score !== null).sort((a,b) => b.score - a.score);
+
+  const highSetting = scored.slice(0,3);
+
+  /* 差枚数が低い候補を、1週間／2週間／3週間／4週間の各期間で算出する。
+     w1（直近7日間）は上で既に算出済みの weekAgg と完全に同じ集計方法・同じデータなので、
+     二重計算を避けてそのまま再利用する。 */
+  const lowDiffWindows = {};
+  LOWDIFF_WINDOWS.forEach(w => {
+    lowDiffWindows[w.key] = (w.days === 7)
+      ? {windowDays:7, startStr, endStr, agg:weekAgg, lowCandidates: weekAgg.slice().sort((a,b) => a.diff - b.diff).slice(0,3)}
+      : (opts && opts.skipLowDiff ? {windowDays:w.days, startStr, endStr, agg:[], lowCandidates:[]} : computeLowDiffWindow(targetDateStr, w.days));
+  });
+  const lowDiffCandidates = lowDiffWindows.w1.lowCandidates; // 後方互換（従来どおり直近1週間）
+
+  return {
+    targetDateStr, targetDateObj, targetTail, targetLabel, targetWd,
+    startStr, endStr, weekAgg, tailAgg, scored, highSetting, lowDiffCandidates, lowDiffWindows, actualMap,
+    trendAll, trendFor, metric, scoreWeights: SW, tailOverlapExcluded, tailHalfLife: tailHalfLife()
+  };
+}
+
+function actualResultHtml(analysis, key, machineType){
+  const a = analysis.actualMap.get(key);
+  if(!a){
+    return `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:11px;color:var(--text-faint);">実績(${analysis.targetDateStr}): データなし</div>`;
+  }
+  const e = estimateSetting(machineType, a.games, a.big, a.reg);
+  return `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:11.5px;">
+    実績(${analysis.targetDateStr}): <span class="${a.diff>=0?'pos':'neg'}">${a.diff>=0?'+':''}${a.diff}</span>　G${a.games} BB${a.big} RB${a.reg}　推定設定${e.best}(期待${e.expected.toFixed(2)} / 4以上${fmtPct(high4Of(e.probs))})
+  </div>`;
+}
+
+function renderCandidateSectionsHtml(analysis){
+  const highCardsHtml = analysis.highSetting.map((c,i) => {
+    const marks = ['1位','2位','3位']; const classes = ['r1','r2','r3'];
+    return `<div class="podium-card ${classes[i]}">
+      <div class="rankmark">${marks[i]}</div>
+      <div class="num">台${c.machine}</div>
+      <div class="meta">
+        ${esc(machineName(c.machineType))}<br>
+        期待設定 <b style="color:var(--text);">${c.scoreExp.toFixed(2)}</b>　設定4以上 <b style="color:var(--text);">${fmtPct(c.scoreH4)}</b><br>
+        <span style="color:var(--text-faint);">順位: ${analysis.metric==='high4'?'設定4以上の確率':'期待設定'}順（${c.basis}）</span><br>
+        週間推定期待値: ${c.weekExp!==null ? c.weekExp.toFixed(2)+` / 4以上${fmtPct(c.weekH4)}（対象${c.weekDays}日）` : '-'}<br>
+        末尾${analysis.targetTail}実績期待値: ${c.tailExp!==null ? c.tailExp.toFixed(2)+` / 4以上${fmtPct(c.tailH4)}（過去${c.tailDays}日分）` : '-'}<br>
+        総合末尾トレンド: ${c.trendExp!==null ? c.trendExp.toFixed(2)+` / 4以上${fmtPct(c.trendH4)}<span style="color:var(--text-faint);">（${c.trendSrc}）</span>` : '<span style="color:var(--text-faint);">データ不足</span>'}<br>
+        ${WD[analysis.targetWd]}曜トレンド: ${c.wdExp!==null ? c.wdExp.toFixed(2)+` / 4以上${fmtPct(c.wdH4)}<span style="color:var(--text-faint);">（${c.wdScope}）</span>` : '<span style="color:var(--text-faint);">データ不足</span>'}
+        ${actualResultHtml(analysis, c.key, c.machineType)}
+      </div>
+    </div>`;
+  }).join('');
+
+  const winKey = LOWDIFF_WINDOWS.some(w => w.key === selectedLowDiffWindow) ? selectedLowDiffWindow : 'w1';
+  const winDef = lowDiffWindowByKey(winKey);
+  const winData = analysis.lowDiffWindows[winKey];
+
+  const lowCardsHtml = winData.lowCandidates.map((g,i) => {
+    const marks = ['1位','2位','3位']; const classes = ['r1','r2','r3'];
+    const key = g.machineType+'_'+g.machine;
+    return `<div class="podium-card ${classes[i]}">
+      <div class="rankmark">${marks[i]}</div>
+      <div class="num">台${g.machine}</div>
+      <div class="meta">
+        ${esc(machineName(g.machineType))}<br>
+        期間内差枚合計 <span class="${g.diff>=0?'pos':'neg'}">${g.diff>=0?'+':''}${g.diff}</span>（対象${g.days}日）<br>
+        G数${g.games}　BB${g.big}　RB${g.reg}　出率${g.der.payoutRate.toFixed(1)}%<br>
+        参考: 期間内推定設定${g.est.best}（期待値${g.est.expected.toFixed(2)} / 4以上${fmtPct(high4Of(g.est.probs))}）
+        ${actualResultHtml(analysis, key, g.machineType)}
+      </div>
+    </div>`;
+  }).join('');
+
+  const lowWindowPills = LOWDIFF_WINDOWS.map(w => {
+    const active = winKey === w.key ? 'active' : '';
+    return `<button class="tab ${active}" style="margin-right:6px;" onclick="setLowDiffWindow('${w.key}')">${w.label}</button>`;
+  }).join('');
+
+  return `
+    <div class="summary-group">
+      <h3>高設定が使われている可能性が高い候補　上位3台（全機種横断）</h3>
+      <div class="podium">${highCardsHtml || '<div class="empty">対象データがありません。</div>'}</div>
+    </div>
+    <div class="summary-group">
+      <h3>差枚数が低い候補　上位3台（全機種横断）</h3>
+      <div style="display:flex;flex-wrap:wrap;margin-bottom:10px;">${lowWindowPills}</div>
+      <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:10px;">
+        集計期間: <b style="color:var(--text);">${winData.startStr} 〜 ${winData.endStr}</b>（対象日の前日までの${winDef.label}／${winDef.days}日間）
+      </div>
+      <div class="podium">${lowCardsHtml || '<div class="empty">対象データがありません。</div>'}</div>
+    </div>
+  `;
+}
+
+function renderMachineBreakdownHtml(analysis){
+  const winKey = LOWDIFF_WINDOWS.some(w => w.key === selectedLowDiffWindow) ? selectedLowDiffWindow : 'w1';
+  const winDef = lowDiffWindowByKey(winKey);
+  const winAgg = analysis.lowDiffWindows[winKey].agg;
+  const typesSet = new Set([...analysis.scored.map(s => s.machineType), ...winAgg.map(g => g.machineType)]);
+  if(!typesSet.size) return '';
+  const orderedTypes = MACHINES.map(m => m.id).filter(id => typesSet.has(id));
+
+  const blocks = orderedTypes.map(typeId => {
+    const highs = analysis.scored.filter(s => s.machineType === typeId).slice(0,3);
+    const lows = winAgg.filter(g => g.machineType === typeId).slice().sort((a,b) => a.diff - b.diff).slice(0,3);
+
+    const highRows = highs.map((c,i) => `<tr>
+        <td class="rank">${i+1}</td>
+        <td class="machine">台${c.machine}</td>
+        <td>${c.scoreExp.toFixed(2)}</td>
+        <td>${fmtPct(c.scoreH4)}</td>
+        <td>週間${c.weekExp!==null ? c.weekExp.toFixed(2) : '-'}</td>
+        <td>末尾${c.tailExp!==null ? c.tailExp.toFixed(2) : '-'}</td>
+        <td>${c.trendExp!==null ? c.trendExp.toFixed(2) : '-'}</td>
+      </tr>`).join('') || `<tr><td colspan="7" style="color:var(--text-faint);">対象データなし</td></tr>`;
+
+    const lowRows = lows.map((g,i) => `<tr>
+        <td class="rank">${i+1}</td>
+        <td class="machine">台${g.machine}</td>
+        <td class="${g.diff>=0?'pos':'neg'}">${g.diff>=0?'+':''}${g.diff}</td>
+        <td>${g.games}</td>
+        <td>設定${g.est.best}(${g.est.expected.toFixed(2)})</td>
+      </tr>`).join('') || `<tr><td colspan="5" style="color:var(--text-faint);">対象データなし</td></tr>`;
+
+    return `<div class="summary-group">
+      <h3 style="margin-bottom:8px;">${esc(machineName(typeId))}</h3>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:280px;">
+          <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:6px;">高設定期待 TOP3（この機種内で比較）</div>
+          <table class="rank-table"><thead><tr><th>順位</th><th>台番</th><th>期待設定</th><th>設定4以上</th><th>週間期待値</th><th>末尾期待値</th><th>総合トレンド</th></tr></thead><tbody>${highRows}</tbody></table>
+        </div>
+        <div style="flex:1;min-width:280px;">
+          <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:6px;">差枚数が低い TOP3（${winDef.label}・この機種内で比較）</div>
+          <table class="rank-table"><thead><tr><th>順位</th><th>台番</th><th>差枚合計</th><th>G数</th><th>推定設定</th></tr></thead><tbody>${lowRows}</tbody></table>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div style="color:var(--text-dim);font-size:11.5px;margin:22px 0 4px;padding-top:14px;border-top:1px solid var(--line);">
+      ここから下は機種ごとの候補です（全機種横断ではなく、同じ機種の台どうしだけで比較した順位です）。
+    </div>
+    ${blocks}
+  `;
+}
+
+/* ============ 日付指定検証タブ ============ */
+/* 日付送りボタン（◀前日／翌日▶／今日）。入力が空のときは明日を起点にする。 */
+function shiftVerifyDate(delta){
+  const input = document.getElementById('verifyDate');
+  let base = input.value;
+  if(!base || isNaN(new Date(base+'T00:00:00').getTime())){
+    const t = new Date(); t.setDate(t.getDate()+1); base = toDateStr(t);
+    delta = 0;
+  }
+  input.value = shiftDateStr(base, delta);
+  renderVerifyTab();
+}
+function setVerifyDateToday(){
+  document.getElementById('verifyDate').value = toDateStr(new Date());
+  renderVerifyTab();
+}
+
+/* 当日の答え合わせ：上位3台の実績を1か所にまとめる（実績データが登録されている日だけ表示）。
+   集計対象は「その日の実績データがある台」のみで、欠測の台は分母に含めない。 */
+function renderActualSummaryHtml(analysis){
+  if(!analysis.actualMap.size) return '';
+  const winKey = LOWDIFF_WINDOWS.some(w => w.key === selectedLowDiffWindow) ? selectedLowDiffWindow : 'w1';
+  const winDef = lowDiffWindowByKey(winKey);
+  const lowList = analysis.lowDiffWindows[winKey].lowCandidates;
+  const fmt = v => (v>=0?'+':'') + Math.round(v).toLocaleString();
+  const cls = v => v>=0 ? 'pos' : 'neg';
+  const summarize = (label, acts, total) => {
+    if(!acts.length){
+      return `<tr><td>${label}</td><td colspan="6" style="color:var(--text-faint);">実績データなし（0/${total}台）</td></tr>`;
+    }
+    const sum = acts.reduce((s,a) => s + a.diff, 0);
+    const plus = acts.filter(a => a.diff > 0).length;
+    const ests = acts.map(a => estimateSetting(a.machineType, a.games, a.big, a.reg));
+    const exp = ests.reduce((s,e) => s + e.expected, 0) / acts.length;
+    const h4 = ests.reduce((s,e) => s + high4Of(e.probs), 0) / acts.length;
+    return `<tr><td>${label}</td><td>${acts.length}/${total}台</td>
+      <td class="${cls(sum)}">${fmt(sum)}</td><td class="${cls(sum/acts.length)}">${fmt(sum/acts.length)}</td>
+      <td>${plus}/${acts.length}台</td><td>${exp.toFixed(2)}</td><td>${fmtPct(h4)}</td></tr>`;
+  };
+  const pick = list => list.map(c => analysis.actualMap.get(c.machineType+'_'+c.machine)).filter(Boolean);
+  const all = [...analysis.actualMap.values()];
+  return `<div class="summary-group actual-summary">
+    <h3>当日の答え合わせ（実績データがある台のみで集計）</h3>
+    <table>
+      <thead><tr><th>候補</th><th>実績あり</th><th>差枚合計</th><th>平均差枚</th><th>プラス</th><th>平均推定設定</th><th>平均 設定4以上</th></tr></thead>
+      <tbody>
+        ${summarize('高設定期待 上位3台', pick(analysis.highSetting), analysis.highSetting.length)}
+        ${summarize('差枚が低い 上位3台（'+winDef.label+'）', pick(lowList), lowList.length)}
+        ${summarize('比較: 当日の全台', all, all.length)}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/* 機種別の内訳は長いので、既定では閉じておく。開閉状態は再描画しても保つ。 */
+let breakdownOpen = false;
+
+function renderVerifyTab(){
+  const area = document.getElementById('tabVerify');
+  if(!DATA.length){ area.innerHTML = '<div class="empty">データを登録すると、ここで日付を指定して候補選定ロジックを検証できます。</div>'; return; }
+
+  const input = document.getElementById('verifyDate');
+  if(!input.value){
+    const t = new Date(); t.setDate(t.getDate()+1);
+    input.value = toDateStr(t);
+  }
+  const targetDateStr = input.value;
+  const targetDateObj = new Date(targetDateStr+'T00:00:00');
+  if(isNaN(targetDateObj.getTime())){ area.innerHTML = '<div class="empty">日付を選択してください。</div>'; return; }
+
+  const analysis = computeCandidateAnalysis(targetDateStr);
+  const hasActual = analysis.actualMap.size > 0;
+  const breakdown = renderMachineBreakdownHtml(analysis);
+  const breakdownHtml = breakdown
+    ? `<details class="breakdown" ${breakdownOpen ? 'open' : ''} ontoggle="breakdownOpen=this.open"><summary>機種ごとの候補を表示（タップで開閉）</summary>${breakdown}</details>`
+    : '';
+
+  const condHtml = renderConditionalDistHtml(analysis);
+  area.innerHTML = `
+    <div style="color:var(--text-dim);font-size:12.5px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
+        検証対象日: <b style="color:var(--text);">${analysis.targetLabel}</b>（日付末尾 <b style="color:var(--gold);">${analysis.targetTail}</b>）
+        ／ 集計期間: ${analysis.startStr} 〜 ${analysis.endStr}（対象日の前日までの直近7日間） ／ 全登録機種を横断して算出
+        <br><span style="color:var(--text-faint);">配合比 週間${analysis.scoreWeights.week}：末尾${analysis.scoreWeights.tail}：トレンド${analysis.scoreWeights.trend}：曜日${analysis.scoreWeights.weekday} ／ 末尾実績の半減期: ${analysis.tailHalfLife > 0 ? analysis.tailHalfLife+"日" : "なし（等重み）"} ／ 順位指標: ${analysis.metric==='high4'?'設定4以上の確率':'期待設定'}${analysis.tailOverlapExcluded ? ` ／ 週間と重なる末尾実績${analysis.tailOverlapExcluded}件を除外` : ''}
+        ／ 事前確率: ${analysis.priorModeUsed === 'auto' ? '自動（EM）' : '手入力'} ／ トレンド: ${trendMethod() === 'em' ? '混合EM' : '従来方式'}（ホール設定で変更可）</span>
+        ${hasActual ? '　／　この日の実績データが登録されています（各候補カードの下段に表示）' : '<br><span style="color:var(--text-faint);">※この日の実績データはまだ登録されていません（未来日、または未入力の場合は実績欄が空欄になります）</span>'}
+      </div>
+      <button class="btn secondary" onclick="openAiPromptForDate('${targetDateStr}')">🤖 AI相談用テキストを作成</button>
+    </div>
+    ${renderActualSummaryHtml(analysis)}
+    ${renderCandidateSectionsHtml(analysis)}
+    ${condHtml}
+    ${breakdownHtml}
+  `;
+}
+
+/* ============ 条件別の設定配分（EM推定）の表示 ============
+   対象日の前日までのデータで、日付末尾・曜日・台番号末尾・機種ごとに
+   「設定4以上が何%使われているか」を並べる。対象日に当てはまる行を強調する。
+   日付末尾・曜日・台番号末尾は「総合末尾トレンド」と同じ値（90日・時間減衰つき、全機種）。
+   機種ごとの配分は、事前確率の自動推定と同じ方法（直近180日）。 */
+let condDistOpen = false;
+function renderConditionalDistHtml(analysis){
+  const comp = analysis.trendAll && analysis.trendAll.composite;
+  if(!comp) return '';
+  const basePi = comp.basePi;
+  const baseH4 = basePi ? basePi[3] + basePi[4] + basePi[5] : null;
+  const maxH4 = 0.6;
+  const bar = h => {
+    const w = Math.max(0, Math.min(100, h / maxH4 * 100));
+    const color = baseH4 !== null && h > baseH4 ? 'var(--gold)' : 'var(--text-faint)';
+    return `<div style="height:6px;background:var(--panel-2);border-radius:3px;min-width:80px;"><div style="height:100%;width:${w}%;background:${color};border-radius:3px;"></div></div>`;
+  };
+  const table = (title, entries, isTarget) => {
+    const rows = entries.map(([label, g, key]) => {
+      const ok = g && !g.insufficient && g.probs;
+      const h = ok ? high4Of(g.probs) : null;
+      const hl = isTarget(key) ? ' style="background:rgba(212,175,55,.08);"' : '';
+      return `<tr${hl}><td style="font-family:var(--sans);">${label}${isTarget(key) ? ' <span style="color:var(--gold);">◀</span>' : ''}</td>
+        <td>${g ? g.n : 0}</td>
+        <td>${ok ? fmtPct(h) : '<span style="color:var(--text-faint);">不足</span>'}</td>
+        <td>${ok ? bar(h) : ''}</td>
+        <td>${ok ? g.expected.toFixed(2) : '-'}</td></tr>`;
+    }).join('');
+    return `<div style="flex:1;min-width:260px;">
+      <div style="color:var(--text-dim);font-size:11.5px;margin-bottom:4px;">${title}</div>
+      <table><thead><tr><th>条件</th><th>件数</th><th>設定4以上</th><th></th><th>期待設定</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+  };
+  const tailEntries = [...Array(10).keys()].map(t => [`末尾${t}の日`, comp.dateTail.get(t), t]);
+  const wdEntries = [1,2,3,4,5,6,0].map(w => [`${WD[w]}曜`, comp.weekday.get(w), w]);
+  const numEntries = [...Array(10).keys()].map(t => [`台番末尾${t}`, comp.numTail.get(t), t]);
+  // 機種ごと：自動推定と同じ方法で求めた配分（手入力モードでも表示用に計算する）
+  const ap = autoPriorAt(analysis.endStr);
+  const typeEntries = ap ? [...ap.byType.entries()].map(([type, probs]) => {
+    const pi = [1,2,3,4,5,6].map(s => probs[s]);
+    return [esc(machineName(type)), {n: '-', insufficient:false, probs, expected: pi.reduce((a,p,i) => a+(i+1)*p, 0)}, type];
+  }) : [];
+  return `<details class="breakdown" ${condDistOpen ? 'open' : ''} ontoggle="condDistOpen=this.open">
+    <summary>条件別の設定配分（EM推定）を表示</summary>
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:10px;line-height:1.6;">
+      ${analysis.endStr} までのデータから、条件ごとに「設定4以上が使われている割合」を推定しました（${trendMethod()==='em' ? '混合EM' : '従来方式'}）。
+      ${baseH4 !== null ? `比較の基準となる全体（直近90日・時間減衰つき）は <b style="color:var(--text);">${fmtPct(baseH4)}</b> で、これより高い条件のバーを金色にしています。` : ''}
+      データの少ない条件は全体の値に寄せて推定しています。◀ は検証対象日に当てはまる条件です。
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      ${table('日付末尾', tailEntries, k => k === analysis.targetTail)}
+      ${table('曜日', wdEntries, k => k === analysis.targetWd)}
+      ${table('台番号末尾', numEntries, () => false)}
+      ${typeEntries.length ? table('機種（直近180日）', typeEntries, () => false) : ''}
+    </div>
+  </details>`;
+}
+
+/* ============ 誤差幅（ブートストラップ法） ============
+   日ごとの成績を「日を単位に」ランダムに選び直して平均を1000回計算し、その真ん中95%の範囲を誤差幅とする。
+   幅が0をまたぐ（下限がマイナス・上限がプラス）なら「偶然の範囲内」で、良いとも悪いとも言い切れない。
+   乱数は固定シードなので、同じデータなら何度実行しても同じ幅になる。 */
+const BOOT_N = 1000;
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function bootstrapMeanCI(xs, seed){
+  const n = xs.length;
+  if(n < 2) return null;
+  const rnd = mulberry32(seed || 20261010);
+  const means = new Float64Array(BOOT_N);
+  for(let b=0;b<BOOT_N;b++){
+    let s = 0;
+    for(let i=0;i<n;i++) s += xs[(rnd()*n) | 0];
+    means[b] = s / n;
+  }
+  means.sort();
+  return {lo: means[Math.floor(BOOT_N*0.025)], hi: means[Math.ceil(BOOT_N*0.975)-1]};
+}
+/* 2つの配合比を同じ日どうしで比べた差（a − b）の平均と誤差幅。どちらかが採点できなかった日は除く。 */
+function pairedDiffCI(aArr, bArr, seed){
+  const d = [];
+  for(let i=0;i<aArr.length;i++){ if(aArr[i] !== null && bArr[i] !== null) d.push(aArr[i] - bArr[i]); }
+  if(!d.length) return {mean:null, ci:null};
+  return {mean: d.reduce((s,v) => s+v, 0) / d.length, ci: bootstrapMeanCI(d, seed)};
+}
+function fmtSigned(v){ return v === null || v === undefined ? '-' : (v>=0?'+':'') + Math.round(v).toLocaleString(); }
+function ciHtml(ci){
+  if(!ci) return '';
+  return `<div style="font-size:10.5px;color:var(--text-faint);white-space:nowrap;">${fmtSigned(ci.lo)} 〜 ${fmtSigned(ci.hi)}</div>`;
+}
+/* 誤差幅から一言の判定。lo>0 なら偶然とは考えにくいプラス、hi<0 なら偶然とは考えにくいマイナス。 */
+function ciVerdict(ci){
+  if(!ci) return '';
+  if(ci.lo > 0) return '<span class="pos">偶然とは考えにくいプラス</span>';
+  if(ci.hi < 0) return '<span class="neg">偶然とは考えにくいマイナス</span>';
+  return '<span style="color:var(--text-faint);">偶然の範囲内</span>';
+}
+
+/* ============ 期間まとめて成績検証（ウォークフォワード） ============
+   期間内で実績データがある日ごとに computeCandidateAnalysisUncached を呼び、
+   候補（高設定期待 上位3台／差枚が低い 上位3台）の当日実績を全台平均と比べて集計する。
+   候補の選定は日付指定検証と同じく「対象日の前日までのデータ」だけを使うので、未来データは混ざらない。
+   画面が固まらないよう、数日ずつ setTimeout で区切って処理する。キャッシュは汚さない。
+   「全台平均との差」は「その日の候補の平均差枚 − その日の全台平均差枚」の日平均で、誤差幅も出す。 */
+let wfRunId = 0;
+function wfNewStats(){ return {picks:0, sumDiff:0, plus:0, sumExp:0, sumH4:0, hi4:0, days:0, beatDays:0, excess:[]}; }
+function wfAdd(st, acts, dayAllAvg){
+  if(!acts.length) return;
+  st.days++;
+  let daySum = 0;
+  acts.forEach(a => {
+    const e = estimateSetting(a.machineType, a.games, a.big, a.reg);
+    st.picks++; st.sumDiff += a.diff; daySum += a.diff;
+    if(a.diff > 0) st.plus++;
+    st.sumExp += e.expected; st.sumH4 += high4Of(e.probs);
+    if(e.best >= 4) st.hi4++;
+  });
+  if(dayAllAvg !== null){
+    st.excess.push(daySum/acts.length - dayAllAvg);
+    if(daySum/acts.length > dayAllAvg) st.beatDays++;
+  }
+}
+function runWalkForward(){
+  const out = document.getElementById('wfResult');
+  if(!SORTED_DATES.length){ out.innerHTML = '<div class="empty">データがありません。</div>'; return; }
+  const sEl = document.getElementById('wfStart'), eEl = document.getElementById('wfEnd');
+  if(!eEl.value) eEl.value = SORTED_DATES[SORTED_DATES.length-1];
+  if(!sEl.value) sEl.value = shiftDateStr(eEl.value, -29);
+  const startStr = sEl.value, endStr = eEl.value;
+  if(startStr > endStr){ out.innerHTML = '<div class="empty">開始日は終了日より前にしてください。</div>'; return; }
+  const dates = SORTED_DATES.slice(lowerBound(SORTED_DATES, startStr), upperBound(SORTED_DATES, endStr));
+  if(!dates.length){ out.innerHTML = '<div class="empty">この期間に実績データがありません。</div>'; return; }
+
+  const runId = ++wfRunId;
+  const winKey = LOWDIFF_WINDOWS.some(w => w.key === selectedLowDiffWindow) ? selectedLowDiffWindow : 'w1';
+  const ctx = {
+    startStr, endStr, winDef: lowDiffWindowByKey(winKey), winKey,
+    sw: currentScoreWeights(), metric: currentRankMetric(), hl: tailHalfLife(), minGames: minGamesThreshold(),
+    high: wfNewStats(), low: wfNewStats(), all: wfNewStats(), perDay: [], skipped: 0
+  };
+  const btn = document.getElementById('wfRunBtn');
+  btn.disabled = true; btn.textContent = '検証中…';
+  let i = 0;
+  const step = () => {
+    if(runId !== wfRunId) return; // 新しい検証が始まったら古い処理は打ち切る
+    try{ stepBody(); }
+    catch(err){
+      btn.disabled = false; btn.textContent = '検証を実行';
+      out.innerHTML = `<div class="empty" style="color:var(--red);">検証中にエラーが発生しました: ${esc(err.message)}</div>`;
+    }
+  };
+  const stepBody = () => {
+    const until = Math.min(dates.length, i + 3);
+    for(; i < until; i++){
+      const d = dates[i];
+      const a = computeCandidateAnalysisUncached(d);
+      const all = [...a.actualMap.values()];
+      if(!all.length || !a.highSetting.length){ ctx.skipped++; continue; }
+      const allAvg = all.reduce((s,r) => s + r.diff, 0) / all.length;
+      const pick = list => list.map(c => a.actualMap.get(c.machineType+'_'+c.machine)).filter(Boolean);
+      const hi = pick(a.highSetting), lo = pick(a.lowDiffWindows[winKey].lowCandidates);
+      wfAdd(ctx.high, hi, allAvg);
+      wfAdd(ctx.low, lo, allAvg);
+      wfAdd(ctx.all, all, null);
+      ctx.perDay.push({date:d, allAvg, allN:all.length,
+        hi: a.highSetting.map(c => ({m:c.machine, r:a.actualMap.get(c.machineType+'_'+c.machine)})),
+        lo: a.lowDiffWindows[winKey].lowCandidates.map(c => ({m:c.machine, r:a.actualMap.get(c.machineType+'_'+c.machine)}))});
+    }
+    if(i < dates.length){
+      out.innerHTML = `<div class="empty">検証中… ${i} / ${dates.length}日</div>`;
+      setTimeout(step, 0);
+    } else {
+      btn.disabled = false; btn.textContent = '検証を実行';
+      out.innerHTML = renderWalkForwardHtml(ctx);
+    }
+  };
+  out.innerHTML = `<div class="empty">検証中… 0 / ${dates.length}日</div>`;
+  setTimeout(step, 0);
+}
+function renderWalkForwardHtml(ctx){
+  const fmt = fmtSigned;
+  const cls = v => v>=0 ? 'pos' : 'neg';
+  const pct = (a,b) => b ? (a/b*100).toFixed(1)+'%' : '-';
+  const row = (label, st, isBase, seed) => {
+    if(!st.picks) return `<tr><td>${label}</td><td colspan="7" style="color:var(--text-faint);">実績データなし</td></tr>`;
+    const avg = st.sumDiff/st.picks;
+    const ex = st.excess.length ? st.excess.reduce((s,v) => s+v, 0) / st.excess.length : null;
+    const ci = isBase ? null : bootstrapMeanCI(st.excess, seed);
+    return `<tr><td>${label}</td><td>${st.days}日 / ${st.picks}台</td>
+      <td class="${cls(avg)}">${fmt(avg)}</td>
+      <td>${isBase || ex === null ? '-' : `<span class="${cls(ex)}">${fmt(ex)}</span>${ciHtml(ci)}<div style="font-size:10.5px;">${ciVerdict(ci)}</div>`}</td>
+      <td>${pct(st.plus, st.picks)}</td>
+      <td>${(st.sumExp/st.picks).toFixed(2)}</td>
+      <td>${fmtPct(st.sumH4/st.picks)}</td>
+      <td>${isBase ? '-' : pct(st.beatDays, st.days)}</td></tr>`;
+  };
+  const cell = p => p.r
+    ? `台${p.m} <span class="${cls(p.r.diff)}">${fmt(p.r.diff)}</span>`
+    : `<span style="color:var(--text-faint);">台${p.m} -</span>`;
+  const dayRows = ctx.perDay.slice().reverse().map(d => `<tr>
+      <td>${d.date}(${WD[weekdayOf(d.date)]})</td>
+      <td>${d.hi.map(cell).join('<br>')}</td>
+      <td>${d.lo.map(cell).join('<br>')}</td>
+      <td class="${cls(d.allAvg)}">${fmt(d.allAvg)}（${d.allN}台）</td></tr>`).join('');
+  return `
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:8px;">
+      期間 ${ctx.startStr} 〜 ${ctx.endStr} ／ 配合比 週間${ctx.sw.week}：末尾${ctx.sw.tail}：トレンド${ctx.sw.trend}：曜日${ctx.sw.weekday}
+      ／ 順位指標: ${ctx.metric==='high4'?'設定4以上の確率':'期待設定'} ／ 末尾半減期: ${ctx.hl>0 ? ctx.hl+'日' : 'なし'}
+      ／ 最低G数: ${ctx.minGames || 'なし'}${ctx.skipped ? ` ／ 候補を出せなかった日 ${ctx.skipped}日は除外` : ''}
+    </div>
+    <div class="actual-summary">
+    <table>
+      <thead><tr><th>候補</th><th>対象</th><th>平均差枚</th><th>全台平均との差（95%の幅）</th><th>プラス率</th><th>平均推定設定</th><th>平均 設定4以上</th><th>全台平均に勝った日</th></tr></thead>
+      <tbody>
+        ${row('高設定期待 上位3台', ctx.high, false, 101)}
+        ${row('差枚が低い 上位3台（'+ctx.winDef.label+'）', ctx.low, false, 202)}
+        ${row('比較: 全台', ctx.all, true, 0)}
+      </tbody>
+    </table>
+    </div>
+    <div style="color:var(--text-faint);font-size:11px;margin-top:6px;line-height:1.6;">
+      「全台平均との差」は、その日の候補の平均差枚から当日の全台平均差枚を引いた値の日平均です。下の小さな数字は95%の誤差幅（ブートストラップ法）で、
+      幅が0をまたいでいる場合は、全台平均より良いとも悪いとも言い切れません。
+      「平均推定設定」「設定4以上」は、当日1日分のG数・BB・RBから推定した値です。
+    </div>
+    <details class="breakdown"><summary>日別の内訳を表示（${ctx.perDay.length}日）</summary>
+      <table><thead><tr><th>日付</th><th>高設定期待 上位3台</th><th>差枚が低い 上位3台</th><th>当日の全台平均</th></tr></thead>
+      <tbody>${dayRows}</tbody></table>
+    </details>`;
+}
+
+/* ============ 配合比の自動探索 ============
+   1) 期間内の各日について、週間・末尾実績・末尾トレンド・曜日の値（期待設定と設定4以上の確率）を
+      一度だけ計算して保存する（重い処理はここだけ。候補の選び方は日付指定検証と同じで未来データは使わない）。
+      末尾実績だけは半減期の候補ごとに計算し直して保存する（末尾実績の集計は軽いので、重い処理は増えない）。
+   2) 配合比×順位指標×半減期の組み合わせごとに、保存した値から上位3台を選び直し、当日実績で採点する（軽い）。
+   3) 期間を時系列で前半（学習）・後半（確認）に分け、前半の成績順に並べて後半の成績も並記する。
+   4) 表示する行だけ、確認期間の誤差幅と「いまの設定との差」の誤差幅（同じ日どうしで比較）を出す。
+   採点は「上位3台の当日平均差枚 − 当日の全台平均差枚」の日平均（＝全台平均との差）。 */
+const WS_GRID = {
+  week:    [0.5, 1, 2, 3, 4],
+  tail:    [0, 0.5, 1, 1.5, 2],
+  trend:   [0, 0.5, 1, 1.5],
+  weekday: [0, 0.3, 0.5, 1]
+};
+const WS_HALF_LIVES = [0, 60, 90, 180];
+let wsRunId = 0;
+let WS_LAST = null;
+
+function wsPrecomputeDay(d, hlList){
+  const a = computeCandidateAnalysisUncached(d, {scoreWeights:{week:1, tail:1, trend:1, weekday:1}, skipLowDiff:true});
+  const all = [...a.actualMap.values()];
+  if(!all.length || !a.scored.length) return null;
+  const allAvg = all.reduce((s,r) => s + r.diff, 0) / all.length;
+  // 末尾実績を半減期ごとに計算し直す（行の選び方・最低G数の絞り込みは computeCandidateAnalysisUncached と同じ）
+  const minGames = minGamesThreshold();
+  const tailRowsAll = rowsForTailBefore(a.targetTail, d);
+  const tailRows = excludeWeekFromTail() ? tailRowsAll.filter(r => r.date < a.startStr) : tailRowsAll;
+  const tailAggRaw = aggregateRows(tailRows).filter(g => g.games >= minGames);
+  // 事前確率が「自動」のときは、候補選定と同じ「対象日の前日まで」の事前確率で推定する
+  const prevCtx = PRIOR_CTX;
+  PRIOR_CTX = a.priorCtx || null;
+  let tailByHl;
+  try{
+    tailByHl = hlList.map(hl => new Map(analyzedAggTailDecay(tailAggRaw, d, hl).map(g => [g.machineType+'_'+g.machine, g.est])));
+  } finally { PRIOR_CTX = prevCtx; }
+  const useTrend = USE_TREND_IN_SCORE;
+  const cands = a.scored.map(c => {
+    const r = a.actualMap.get(c.key);
+    const tE = tailByHl.map(m => { const e = m.get(c.key); return e ? e.expected : null; });
+    const tH = tailByHl.map(m => { const e = m.get(c.key); return e ? high4Of(e.probs) : null; });
+    return {
+      e: [c.weekExp, null, useTrend ? c.trendExp : null, useTrend ? c.wdExp : null],
+      h: [c.weekH4,  null, useTrend ? c.trendH4  : null, useTrend ? c.wdH4  : null],
+      tE, tH,
+      diff: r ? r.diff : null
+    };
+  });
+  return {date:d, allAvg, cands};
+}
+/* 1つの組み合わせ（配合比・順位指標・半減期の番号）で、前計算済みの日々を採点する。
+   perDay は日ごとの「全台平均との差」（採点できなかった日は null）で、誤差幅の計算に使う。 */
+function wsEvaluate(days, w, metric, hlIdx){
+  const ws = [w.week, w.tail, w.trend, w.weekday];
+  const perDay = new Array(days.length).fill(null);
+  let n = 0, sumExcess = 0, beat = 0;
+  days.forEach((day, di) => {
+    const scored = [];
+    day.cands.forEach(c => {
+      const vals = metric === 'high4' ? c.h : c.e;
+      const tailV = metric === 'high4' ? c.tH[hlIdx] : c.tE[hlIdx];
+      let num = 0, den = 0;
+      for(let i=0;i<4;i++){
+        const v = i === 1 ? tailV : vals[i];
+        if(v !== null && ws[i] > 0){ num += v*ws[i]; den += ws[i]; }
+      }
+      if(den > 0) scored.push({s: num/den, diff: c.diff});
+    });
+    scored.sort((a,b) => b.s - a.s);
+    const acts = scored.slice(0,3).filter(c => c.diff !== null).map(c => c.diff);
+    if(!acts.length) return;
+    const avg = acts.reduce((s,v) => s + v, 0) / acts.length;
+    const ex = avg - day.allAvg;
+    perDay[di] = ex;
+    n++; sumExcess += ex; if(ex > 0) beat++;
+  });
+  return {days:n, excess: n ? sumExcess/n : null, beatRate: n ? beat/n : null, perDay};
+}
+
+function runWeightSearch(){
+  const out = document.getElementById('wsResult');
+  if(!SORTED_DATES.length){ out.innerHTML = '<div class="empty">データがありません。</div>'; return; }
+  const sEl = document.getElementById('wfStart'), eEl = document.getElementById('wfEnd');
+  if(!eEl.value) eEl.value = SORTED_DATES[SORTED_DATES.length-1];
+  if(!sEl.value) sEl.value = shiftDateStr(eEl.value, -89);
+  const startStr = sEl.value, endStr = eEl.value;
+  if(startStr > endStr){ out.innerHTML = '<div class="empty">開始日は終了日より前にしてください。</div>'; return; }
+  const dates = SORTED_DATES.slice(lowerBound(SORTED_DATES, startStr), upperBound(SORTED_DATES, endStr));
+  if(dates.length < 10){ out.innerHTML = '<div class="empty">期間内の実績データが10日未満のため探索できません。期間を広げてください（目安は60日以上）。</div>'; return; }
+
+  // 半減期の候補（いまの設定が候補に無ければ追加する）
+  const curHl = tailHalfLife();
+  const hlList = WS_HALF_LIVES.includes(curHl) ? WS_HALF_LIVES.slice() : [...WS_HALF_LIVES, curHl].sort((a,b) => a-b);
+
+  const runId = ++wsRunId;
+  const btn = document.getElementById('wsRunBtn');
+  btn.disabled = true; btn.textContent = '探索中…';
+  const finish = html => { btn.disabled = false; btn.textContent = '自動探索を実行'; out.innerHTML = html; };
+  const days = [];
+  let i = 0;
+  const step = () => {
+    if(runId !== wsRunId) return;
+    try{
+      const until = Math.min(dates.length, i + 3);
+      for(; i < until; i++){ const d = wsPrecomputeDay(dates[i], hlList); if(d) days.push(d); }
+      if(i < dates.length){
+        out.innerHTML = `<div class="empty">日ごとの値を計算中… ${i} / ${dates.length}日</div>`;
+        setTimeout(step, 0);
+        return;
+      }
+      out.innerHTML = '<div class="empty">組み合わせを採点中…</div>';
+      setTimeout(() => {
+        if(runId !== wsRunId) return;
+        try{ finish(wsSearchAndRender(days, startStr, endStr, hlList)); }
+        catch(err){ finish(`<div class="empty" style="color:var(--red);">探索中にエラーが発生しました: ${esc(err.message)}</div>`); }
+      }, 0);
+    }catch(err){
+      finish(`<div class="empty" style="color:var(--red);">探索中にエラーが発生しました: ${esc(err.message)}</div>`);
+    }
+  };
+  out.innerHTML = `<div class="empty">日ごとの値を計算中… 0 / ${dates.length}日</div>`;
+  setTimeout(step, 0);
+}
+
+function wsSearchAndRender(days, startStr, endStr, hlList){
+  const ratio = parseFloat(document.getElementById('wsTrainRatio').value) || 0.67;
+  const cut = Math.round(days.length * ratio);
+  const train = days.slice(0, cut), test = days.slice(cut);
+  if(train.length < 5 || test.length < 5){
+    return '<div class="empty">学習・確認それぞれに5日以上の実績データが必要です。期間を広げてください。</div>';
+  }
+  const sameW = (a,b) => SCORE_WEIGHT_KEYS.every(k => Math.abs(a[k]-b[k]) < 1e-9);
+  const same = (a,b) => a.metric === b.metric && a.hl === b.hl && sameW(a.w, b.w);
+  const combos = [];
+  ['expected','high4'].forEach(metric => hlList.forEach(hl => {
+    WS_GRID.week.forEach(week => WS_GRID.tail.forEach(tail => WS_GRID.trend.forEach(trend => WS_GRID.weekday.forEach(weekday => {
+      combos.push({w:{week, tail, trend, weekday}, metric, hl});
+    }))));
+  }));
+  // いまの設定とロードマップ初期値（半減期はいまの設定）も、格子に無ければ比較用に追加する
+  const cur = {w: currentScoreWeights(), metric: currentRankMetric(), hl: tailHalfLife()};
+  const road = {w: {...ROADMAP_SCORE_WEIGHTS}, metric: 'expected', hl: tailHalfLife()};
+  [cur, road].forEach(x => { if(!combos.some(c => same(c, x))) combos.push({...x}); });
+
+  combos.forEach(c => {
+    const hi = hlList.indexOf(c.hl);
+    c.train = wsEvaluate(train, c.w, c.metric, hi);
+    c.test = wsEvaluate(test, c.w, c.metric, hi);
+  });
+  combos.sort((a,b) => (b.train.excess ?? -Infinity) - (a.train.excess ?? -Infinity) || (b.test.excess ?? -Infinity) - (a.test.excess ?? -Infinity));
+  combos.forEach((c,i) => c.rank = i + 1);
+  const isCur = c => same(c, cur);
+  const isRoad = c => same(c, road);
+  WS_LAST = combos;
+
+  const top = combos.slice(0, 10);
+  const extra = combos.filter(c => (isCur(c) || isRoad(c)) && c.rank > 10);
+  const shown = [...top, ...extra];
+  const curC = combos.find(isCur);
+  // 表示する行だけ誤差幅を計算する（全組み合わせで計算すると重いため）
+  shown.forEach((c, i) => {
+    c.testCI = bootstrapMeanCI(c.test.perDay.filter(v => v !== null), 1000 + i);
+    c.vsCur = isCur(c) ? null : pairedDiffCI(c.test.perDay, curC.test.perDay, 2000 + i);
+  });
+
+  const fmt = fmtSigned;
+  const cls = v => v === null || v === undefined ? '' : (v>=0 ? 'pos' : 'neg');
+  const pct = v => v === null ? '-' : (v*100).toFixed(0) + '%';
+  const hlLabel = hl => hl > 0 ? hl + '日' : 'なし';
+  const row = c => {
+    const tag = isCur(c) ? ' <span style="color:var(--gold);">（いまの設定）</span>' : (isRoad(c) ? ' <span style="color:var(--text-faint);">（ロードマップ初期値）</span>' : '');
+    const vs = c.vsCur
+      ? `<span class="${cls(c.vsCur.mean)}">${fmt(c.vsCur.mean)}</span>${ciHtml(c.vsCur.ci)}<div style="font-size:10.5px;">${c.vsCur.ci && c.vsCur.ci.lo > 0 ? '<span class="pos">確実に良い</span>' : (c.vsCur.ci && c.vsCur.ci.hi < 0 ? '<span class="neg">確実に悪い</span>' : '<span style="color:var(--text-faint);">差は誤差の範囲</span>')}</div>`
+      : '<span style="color:var(--text-faint);">基準</span>';
+    return `<tr${isCur(c) ? ' style="background:rgba(212,175,55,.06);"' : ''}>
+      <td class="rank">${c.rank}</td>
+      <td>${c.w.week} / ${c.w.tail} / ${c.w.trend} / ${c.w.weekday}${tag}</td>
+      <td>${c.metric === 'high4' ? '設定4以上' : '期待設定'}</td>
+      <td>${hlLabel(c.hl)}</td>
+      <td class="${cls(c.train.excess)}">${fmt(c.train.excess)}</td>
+      <td><span class="${cls(c.test.excess)}">${fmt(c.test.excess)}</span>${ciHtml(c.testCI)}</td>
+      <td>${pct(c.test.beatRate)}</td>
+      <td>${vs}</td>
+      <td>${isCur(c) ? '<span style="color:var(--text-faint);">適用中</span>' : `<button class="btn secondary small" onclick="applySearchedWeights(${c.rank})">適用</button>`}</td>
+    </tr>`;
+  };
+  const curTest = curC && curC.test.excess !== null ? curC.test.excess : 0;
+  const robust = top.filter(c => c.test.excess !== null && c.test.excess > curTest).length;
+  const sure = top.filter(c => c.vsCur && c.vsCur.ci && c.vsCur.ci.lo > 0);
+  return `
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:8px;line-height:1.6;">
+      期間 ${startStr} 〜 ${endStr} ／ 学習（前半） ${train[0].date} 〜 ${train[train.length-1].date}（${train.length}日）
+      ／ 確認（後半） ${test[0].date} 〜 ${test[test.length-1].date}（${test.length}日） ／ ${combos.length.toLocaleString()}通りを比較
+      ／ 末尾半減期の候補: ${hlList.map(hlLabel).join('・')} ／ 最低G数・重複除外は、いまの設定を使用
+    </div>
+    <div class="actual-summary">
+    <table class="rank-table">
+      <thead><tr><th>順位</th><th>配合比（週間/末尾/トレンド/曜日）</th><th>順位指標</th><th>末尾半減期</th>
+        <th>学習: 全台平均との差</th><th>確認: 全台平均との差（95%の幅）</th><th>確認: 勝った日</th><th>確認: いまの設定との差（95%の幅）</th><th></th></tr></thead>
+      <tbody>
+        ${top.map(row).join('')}
+        ${extra.length ? `<tr><td colspan="9" style="color:var(--text-faint);font-family:var(--sans);">…</td></tr>` + extra.map(row).join('') : ''}
+      </tbody>
+    </table>
+    </div>
+    <div style="color:var(--text-dim);font-size:11.5px;margin-top:8px;line-height:1.7;">
+      上位10件のうち、確認期間でも「いまの設定」（確認: ${fmt(curTest)}）を上回ったのは <b style="color:var(--text);">${robust}件</b>、
+      そのうち差が誤差の範囲を超えて「確実に良い」と言えるのは <b style="color:var(--text);">${sure.length}件</b> です。
+      ${sure.length
+        ? `「確実に良い」と出た配合比（${sure.slice(0,3).map(c => c.rank+'位').join('・')}）は、適用を検討する価値があります。`
+        : (robust >= 4
+          ? '上位の配合比はいまの設定より良さそうですが、差は誤差の範囲内です。急いで変える必要はなく、データが増えてから再度探索するのがおすすめです。'
+          : '前半の成績が後半にあまり引き継がれていません。たまたま過去に合っただけの可能性が高いので、いまの設定のまま様子を見るのがおすすめです。')}
+      <br>「全台平均との差」は、上位3台の当日平均差枚から当日の全台平均差枚を引いた値の日平均です。順位は学習期間の成績順です。
+      「いまの設定との差」は、確認期間の同じ日どうしで比べた差の平均で、95%の幅が0をまたがなければ「確実に良い／悪い」と表示します。
+    </div>`;
+}
+function applySearchedWeights(rank){
+  const c = WS_LAST && WS_LAST.find(x => x.rank === rank);
+  if(!c) return;
+  const hlText = c.hl > 0 ? c.hl + '日' : 'なし（等重み）';
+  if(!confirm(`配合比を 週間${c.w.week} / 末尾${c.w.tail} / トレンド${c.w.trend} / 曜日${c.w.weekday}、順位指標を「${c.metric === 'high4' ? '設定4以上の確率' : '期待設定'}」、末尾実績の半減期を「${hlText}」に変更します。よろしいですか？\n（ホール設定からいつでも元に戻せます）`)) return;
+  CONFIG.scoreWeights = normalizeScoreWeights(c.w);
+  CONFIG.rankMetric = c.metric;
+  CONFIG.tailHalfLife = c.hl;
+  saveConfig();
+  renderMain();
+  const out = document.getElementById('wsResult');
+  out.insertAdjacentHTML('afterbegin', `<div style="color:var(--green);font-size:12px;margin-bottom:8px;">適用しました（${c.w.week} / ${c.w.tail} / ${c.w.trend} / ${c.w.weekday}・${c.metric === 'high4' ? '設定4以上' : '期待設定'}・半減期${hlText}）。表の「いまの設定」表示は、もう一度探索すると更新されます。</div>`);
+}
+
+/* ============ 設定の比較検証（A/B） ============
+   A＝いまの設定、B＝1か所だけ変えた設定で、期間内の各日について高設定期待の上位3台を選び、
+   当日実績の「全台平均との差」を同じ日どうしで比べる。差の誤差幅は pairedDiffCI（ブートストラップ法）。
+   B の計算中だけ CONFIG を差し替え、終わったら必ず元に戻す（保存はしない）。キャッシュも汚さない。 */
+let abRunId = 0;
+let AB_LAST = null;
+function abVariantDef(kind){
+  const priorLabel = m => m === 'auto' ? '自動（EM）' : '手入力';
+  const prLabel = p => [1,2,3,4,5,6].map(s => Math.round(p[s]*100)).join('/');
+  if(kind === 'prior'){
+    const b = priorMode() === 'auto' ? 'manual' : 'auto';
+    return {override:{priorMode:b}, aLabel:`事前確率: ${priorLabel(priorMode())}`, bLabel:`事前確率: ${priorLabel(b)}`};
+  }
+  if(kind === 'emValue'){
+    const r = estimateHallPrior(AUTO_PRIOR_DAYS);
+    if(!r || r.error) return {error: (r && r.error) || 'データがありません。'};
+    const p = piToProbs(r.pi);
+    return {override:{priorMode:'manual', prior:p}, aLabel:`事前確率: ${priorMode()==='auto' ? '自動（EM）' : '手入力 '+prLabel(currentPrior())}`,
+      bLabel:`事前確率: 手入力 ${prLabel(p)}（直近${AUTO_PRIOR_DAYS}日のEM推定値）`,
+      note:'B の推定値は期間の最後までのデータで求めた固定値なので、期間の前半では「未来のデータ」を少し含みます。厳密な比較は「事前確率の決め方（自動EM）」を使ってください。'};
+  }
+  if(kind === 'uniform'){
+    const p = {1:1/6,2:1/6,3:1/6,4:1/6,5:1/6,6:1/6};
+    return {override:{priorMode:'manual', prior:p}, aLabel:`事前確率: ${priorMode()==='auto' ? '自動（EM）' : '手入力 '+prLabel(currentPrior())}`, bLabel:'事前確率: 手入力 均等（各16.7%）'};
+  }
+  const b = trendMethod() === 'em' ? 'pooled' : 'em';
+  const tl = m => m === 'em' ? '混合EM' : '従来方式';
+  return {override:{trendMethod:b}, aLabel:`トレンド: ${tl(trendMethod())}`, bLabel:`トレンド: ${tl(b)}`};
+}
+function abDayResult(d){
+  const a = computeCandidateAnalysisUncached(d, {skipLowDiff:true});
+  const all = [...a.actualMap.values()];
+  if(!all.length || !a.highSetting.length) return null;
+  const allAvg = all.reduce((s,r) => s + r.diff, 0) / all.length;
+  const acts = a.highSetting.map(c => a.actualMap.get(c.key)).filter(Boolean);
+  if(!acts.length) return {ex:null, picks:a.highSetting.map(c => c.key), plus:0, n:0, sum:0};
+  const sum = acts.reduce((s,r) => s + r.diff, 0);
+  return {ex: sum/acts.length - allAvg, picks: a.highSetting.map(c => c.key), plus: acts.filter(r => r.diff > 0).length, n: acts.length, sum};
+}
+function runAbCompare(){
+  const out = document.getElementById('abResult');
+  if(!SORTED_DATES.length){ out.innerHTML = '<div class="empty">データがありません。</div>'; return; }
+  const def = abVariantDef(document.getElementById('abVariant').value);
+  if(def.error){ out.innerHTML = `<div class="empty" style="color:var(--red);">${esc(def.error)}</div>`; return; }
+  const sEl = document.getElementById('wfStart'), eEl = document.getElementById('wfEnd');
+  if(!eEl.value) eEl.value = SORTED_DATES[SORTED_DATES.length-1];
+  if(!sEl.value) sEl.value = shiftDateStr(eEl.value, -89);
+  const startStr = sEl.value, endStr = eEl.value;
+  if(startStr > endStr){ out.innerHTML = '<div class="empty">開始日は終了日より前にしてください。</div>'; return; }
+  const dates = SORTED_DATES.slice(lowerBound(SORTED_DATES, startStr), upperBound(SORTED_DATES, endStr));
+  if(dates.length < 5){ out.innerHTML = '<div class="empty">期間内の実績データが5日未満です。期間を広げてください（目安は60日以上）。</div>'; return; }
+
+  const runId = ++abRunId;
+  const btn = document.getElementById('abRunBtn');
+  btn.disabled = true; btn.textContent = '比較中…';
+  const finish = html => { btn.disabled = false; btn.textContent = '比較を実行'; out.innerHTML = html; };
+  const resA = [], resB = [];
+  let i = 0;
+  const step = () => {
+    if(runId !== abRunId) return;
+    try{
+      const until = Math.min(dates.length, i + 2);
+      for(; i < until; i++){
+        resA.push(abDayResult(dates[i]));
+        const saved = CONFIG;
+        CONFIG = {...saved, ...def.override};
+        try{ resB.push(abDayResult(dates[i])); }
+        finally{ CONFIG = saved; }
+      }
+      if(i < dates.length){
+        out.innerHTML = `<div class="empty">比較中… ${i} / ${dates.length}日</div>`;
+        setTimeout(step, 0);
+        return;
+      }
+      finish(renderAbHtml(def, dates, resA, resB, startStr, endStr));
+    }catch(err){
+      finish(`<div class="empty" style="color:var(--red);">比較中にエラーが発生しました: ${esc(err.message)}</div>`);
+    }
+  };
+  out.innerHTML = `<div class="empty">比較中… 0 / ${dates.length}日</div>`;
+  setTimeout(step, 0);
+}
+function renderAbHtml(def, dates, resA, resB, startStr, endStr){
+  const exA = resA.map(r => r ? r.ex : null), exB = resB.map(r => r ? r.ex : null);
+  const stat = (res, ex) => {
+    const xs = ex.filter(v => v !== null);
+    const picks = res.reduce((s,r) => s + (r ? r.n : 0), 0);
+    const plus = res.reduce((s,r) => s + (r ? r.plus : 0), 0);
+    const sum = res.reduce((s,r) => s + (r ? r.sum : 0), 0);
+    return {days: xs.length, mean: xs.length ? xs.reduce((s,v) => s+v, 0)/xs.length : null, ci: bootstrapMeanCI(xs, 31),
+            beat: xs.length ? xs.filter(v => v > 0).length / xs.length : null, plusRate: picks ? plus/picks : null, avgDiff: picks ? sum/picks : null, picks};
+  };
+  const sA = stat(resA, exA), sB = stat(resB, exB);
+  const diff = pairedDiffCI(exB, exA, 77);
+  let same = 0, both = 0;
+  resA.forEach((r, i) => {
+    const b = resB[i];
+    if(!r || !b) return;
+    both++;
+    const setA = new Set(r.picks);
+    if(b.picks.length === r.picks.length && b.picks.every(k => setA.has(k))) same++;
+  });
+  AB_LAST = def;
+  const cls = v => v === null ? '' : (v>=0 ? 'pos' : 'neg');
+  const pct = v => v === null ? '-' : (v*100).toFixed(1) + '%';
+  const row = (label, s) => `<tr><td style="font-family:var(--sans);">${esc(label)}</td><td>${s.days}日 / ${s.picks}台</td>
+    <td class="${cls(s.avgDiff)}">${fmtSigned(s.avgDiff)}</td>
+    <td><span class="${cls(s.mean)}">${fmtSigned(s.mean)}</span>${ciHtml(s.ci)}</td>
+    <td>${pct(s.plusRate)}</td><td>${pct(s.beat)}</td></tr>`;
+  let verdict;
+  if(!diff.ci) verdict = '比較できる日が足りません。';
+  else if(diff.ci.lo > 0) verdict = '<b class="pos">B のほうが確実に良い</b>結果です（差の幅がすべてプラス）。B への変更をおすすめします。';
+  else if(diff.ci.hi < 0) verdict = '<b class="neg">A（いまの設定）のほうが確実に良い</b>結果です。いまの設定のままがおすすめです。';
+  else verdict = '<span style="color:var(--text);">差は誤差の範囲内</span>です。この期間では、どちらが良いとも言い切れません。';
+  return `
+    <div style="color:var(--text-faint);font-size:11px;margin-bottom:8px;">
+      期間 ${startStr} 〜 ${endStr}（実績データ ${dates.length}日） ／ 高設定期待 上位3台で比較 ／ 配合比・半減期・最低G数などはいまの設定
+    </div>
+    <div class="actual-summary">
+    <table>
+      <thead><tr><th>設定</th><th>対象</th><th>平均差枚</th><th>全台平均との差（95%の幅）</th><th>プラス率</th><th>全台平均に勝った日</th></tr></thead>
+      <tbody>
+        ${row('A（いまの設定）: ' + def.aLabel, sA)}
+        ${row('B: ' + def.bLabel, sB)}
+      </tbody>
+    </table>
+    </div>
+    <div style="color:var(--text-dim);font-size:11.5px;margin-top:8px;line-height:1.7;">
+      B − A の差（同じ日どうし）: <b class="${cls(diff.mean)}">${fmtSigned(diff.mean)}</b>
+      ${diff.ci ? `<span style="color:var(--text-faint);">（95%の幅 ${fmtSigned(diff.ci.lo)} 〜 ${fmtSigned(diff.ci.hi)}）</span>` : ''} → ${verdict}<br>
+      上位3台が A と B で完全に同じだった日: ${both ? `${same} / ${both}日（${(same/both*100).toFixed(0)}%）` : '-'}
+      ${both && same/both > 0.8 ? '　※ほとんどの日で候補が同じため、差が出にくい比較です。' : ''}
+      ${def.note ? `<br><span style="color:var(--text-faint);">${esc(def.note)}</span>` : ''}
+    </div>
+    <button class="btn secondary" style="width:auto;margin-top:8px;" onclick="applyAbVariant()">B の設定を適用する</button>`;
+}
+function applyAbVariant(){
+  if(!AB_LAST) return;
+  if(!confirm(`「${AB_LAST.bLabel}」に変更します。よろしいですか？\n（ホール設定からいつでも元に戻せます）`)) return;
+  Object.assign(CONFIG, AB_LAST.override);
+  saveConfig();
+  renderMain();
+  document.getElementById('abResult').insertAdjacentHTML('afterbegin', `<div style="color:var(--green);font-size:12px;margin-bottom:8px;">「${esc(AB_LAST.bLabel)}」を適用しました。もう一度比較すると、これが新しい A になります。</div>`);
+  AB_LAST = null;
+}
+
+const AI_PREFIX_KEY = 'juggler_ai_prompt_prefix_v1';
+let lastAiBaseText = '';
+function loadAiPromptPrefix(){ return localStorage.getItem(AI_PREFIX_KEY) || ''; }
+function saveAiPromptPrefix(){
+  localStorage.setItem(AI_PREFIX_KEY, document.getElementById('aiPromptPrefix').value);
+  document.getElementById('aiPromptText').value = withAiPromptPrefix(lastAiBaseText);
+}
+function withAiPromptPrefix(text){
+  const prefix = document.getElementById('aiPromptPrefix').value.trim();
+  return prefix ? (prefix + '\n\n' + text) : text;
+}
+
+/* ============ AI相談用テキスト作成 ============ */
+function buildAiConsultText(analysis){
+  const lines = [];
+  lines.push(`あなたはジャグラーシリーズの実戦データ分析に詳しいアドバイザーです。以下は「${CONFIG.hall}」の実戦データをもとに算出した設定推測情報です。この情報をもとに、対象日にどの台で高設定が使われていそうか、逆にどの台は避けたほうがよさそうかを、理由とあわせて考察してください。日付末尾による設定変更の傾向（同じ末尾の日を優遇する/しないクセなど）や、直近の差枚状況（据え置き・高稼働による設定変更期待など）も考慮してください。`);
+  lines.push('');
+  lines.push(`■ 対象日: ${analysis.targetLabel}（日付末尾: ${analysis.targetTail}）`);
+  lines.push(`■ 直近実戦データの集計期間（対象日の前日まで直近7日間）: ${analysis.startStr} 〜 ${analysis.endStr}`);
+  lines.push('');
+
+  lines.push(`【1】直近7日間の台別データ（推定設定期待値が高い順。期待値は1〜6の重み付き平均で、6に近いほど高設定寄り）`);
+  if(analysis.weekAgg.length){
+    lines.push('機種 / 台番 / 対象日数 / 差枚合計 / G数 / BB / RB / 出率 / 推定設定(期待値) / 信頼度');
+    analysis.weekAgg.forEach(g => {
+      lines.push(`${machineName(g.machineType)} / 台${g.machine} / ${g.days}日 / ${g.diff>=0?'+':''}${g.diff} / ${g.games} / ${g.big} / ${g.reg} / ${g.der.payoutRate.toFixed(1)}% / 設定${g.est.best}(期待値${g.est.expected.toFixed(2)}) / ${g.est.confidence}`);
+    });
+  } else {
+    lines.push('（該当データなし）');
+  }
+  lines.push('');
+
+  lines.push(`【2】日付末尾${analysis.targetTail}の日の過去実績（対象日自身は除く。全期間から合算${tailHalfLife() > 0 ? "。推定設定は半減期"+tailHalfLife()+"日の時間減衰つき" : ""}${excludeWeekFromTail() ? '。【1】の7日間と重なる日は除外' : ''}）`);
+  if(analysis.tailAgg.length){
+    lines.push('機種 / 台番 / 対象日数 / 差枚合計 / G数 / BB / RB / 推定設定(期待値)');
+    analysis.tailAgg.forEach(g => {
+      lines.push(`${machineName(g.machineType)} / 台${g.machine} / ${g.days}日 / ${g.diff>=0?'+':''}${g.diff} / ${g.games} / ${g.big} / ${g.reg} / 設定${g.est.best}(期待値${g.est.expected.toFixed(2)})`);
+    });
+  } else {
+    lines.push('（該当データなし）');
+  }
+  lines.push('');
+
+  const sw = analysis.scoreWeights;
+  lines.push(`【3】アプリが機械的に算出した候補（参考情報。週間・末尾実績・末尾トレンド・曜日を 週間${sw.week}:末尾${sw.tail}:トレンド${sw.trend}:曜日${sw.weekday} で重み付き平均し、${analysis.metric==='high4'?'設定4以上の確率':'期待設定'}の高い順）`);
+  lines.push('◯高設定期待候補:');
+  analysis.highSetting.forEach((c,i) => {
+    lines.push(`  ${i+1}位: ${machineName(c.machineType)} 台${c.machine}（期待設定${c.scoreExp.toFixed(2)}／設定4以上${fmtPct(c.scoreH4)}／${c.basis}）`);
+  });
+  LOWDIFF_WINDOWS.forEach(w => {
+    const wd = analysis.lowDiffWindows[w.key];
+    lines.push(`◯差枚数が低い候補（${w.label}＝${wd.startStr}〜${wd.endStr}の差枚合計が低い順）:`);
+    if(wd.lowCandidates.length){
+      wd.lowCandidates.forEach((g,i) => {
+        lines.push(`  ${i+1}位: ${machineName(g.machineType)} 台${g.machine}（差枚${g.diff>=0?'+':''}${g.diff}）`);
+      });
+    } else {
+      lines.push('  （該当データなし）');
+    }
+  });
+  lines.push('');
+
+  if(analysis.actualMap.size > 0){
+    lines.push(`【4】対象日（${analysis.targetDateStr}）の実績データ（検証用。すでに登録済み）`);
+    lines.push('機種 / 台番 / 差枚 / G数 / BB / RB / その日の推定設定');
+    [...analysis.actualMap.values()].forEach(a => {
+      const e = estimateSetting(a.machineType, a.games, a.big, a.reg);
+      lines.push(`${machineName(a.machineType)} / 台${a.machine} / ${a.diff>=0?'+':''}${a.diff} / ${a.games} / ${a.big} / ${a.reg} / 設定${e.best}(期待値${e.expected.toFixed(2)})`);
+    });
+    lines.push('');
+  }
+
+  lines.push('上記データから、対象日に高設定が使われていそうな台と、その根拠（週間の稼働状況・末尾の傾向・差枚の推移など）を、簡潔に整理して教えてください。');
+  return lines.join('\n');
+}
+
+function openAiPromptForDate(targetDateStr){
+  const analysis = computeCandidateAnalysis(targetDateStr);
+  lastAiBaseText = buildAiConsultText(analysis);
+  document.getElementById('aiPromptPrefix').value = loadAiPromptPrefix();
+  document.getElementById('aiPromptText').value = withAiPromptPrefix(lastAiBaseText);
+  document.getElementById('aiPromptModal').classList.add('open');
+}
+
+function copyAiPrompt(){
+  const ta = document.getElementById('aiPromptText');
+  const btn = document.getElementById('aiCopyBtn');
+  const done = ok => { btn.textContent = ok ? 'コピーしました！' : 'コピーに失敗しました'; setTimeout(()=>{ btn.textContent = 'コピー'; }, 1800); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(()=>done(true)).catch(()=>{
+      ta.select(); try{ document.execCommand('copy'); done(true); }catch(e){ done(false); }
+    });
+  } else {
+    ta.select();
+    try{ document.execCommand('copy'); done(true); }catch(e){ done(false); }
+  }
+}
+
+/* ============ 起動処理 ============ */
+buildDataIndex();
+refreshTags();
+renderDataList();
+</script>
+<script>
+/* PWA：Service Worker を登録し、電波なしでも起動できるようにする（file:// で開いたときは何もしない）。
+   あわせて、ブラウザに保存データ（localStorage）を自動削除しないよう依頼する。 */
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+if(navigator.storage && navigator.storage.persist){
+  navigator.storage.persisted().then(p => { if(!p) navigator.storage.persist(); }).catch(() => {});
+}
+</script>
+</body>
+</html>
