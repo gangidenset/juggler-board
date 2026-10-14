@@ -74,27 +74,22 @@ jobs:
           grep -E "versionCode|versionName" build.gradle
 
       - name: Build signed APK
-        working-directory: build
+        working-directory: build/android
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          ./gradlew --no-daemon assembleRelease
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          UNSIGNED=app/build/outputs/apk/release/app-release-unsigned.apk
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
-          npx cap build android \
-            --keystorepath "$RUNNER_TEMP/release.keystore" \
-            --keystorepass "$KEYSTORE_PASSWORD" \
-            --keystorealias "$KEY_ALIAS" \
-            --keystorealiaspass "$KEYSTORE_PASSWORD" \
-            --androidreleasetype APK
-          # 署名済み（*-signed.apk）だけを使う。同じ場所に未署名版（*-unsigned.apk）もできるので注意
-          APK=$(find android/app/build/outputs/apk/release -name '*-signed.apk' ! -name '*unsigned*' | head -1)
-          test -n "$APK"
-          echo "built: $APK"
-          cp "$APK" "$GITHUB_WORKSPACE/juggler-board.apk"
-          # 署名を検証（未署名・壊れたAPKなら失敗させる）
-          "$ANDROID_HOME"/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)/apksigner verify --print-certs "$GITHUB_WORKSPACE/juggler-board.apk"
+          # Android 11以降の端末は v2 以上の署名が必須なので apksigner で署名する（v1/v2/v3）
+          "$BT/zipalign" -p -f 4 "$UNSIGNED" "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign             --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$KEY_ALIAS"             --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEYSTORE_PASSWORD             --out "$GITHUB_WORKSPACE/juggler-board.apk" "$RUNNER_TEMP/aligned.apk"
           rm -f "$RUNNER_TEMP/release.keystore"
+          # 署名を検証（未署名・壊れたAPKなら失敗させる）
+          "$BT/apksigner" verify --verbose --print-certs "$GITHUB_WORKSPACE/juggler-board.apk"
 
       - name: Publish to Releases
         env:
